@@ -1,0 +1,25 @@
+{
+  "name": "silk",
+  "version": "0.0.0",
+  "description": "Web MVC framework",
+  "main": "silk.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/carlosvpi/silk.git"
+  },
+  "keywords": [
+    "javascript",
+    "typescript",
+    "framework",
+    "mvc"
+  ],
+  "author": "Carlos Vazquez <carlos.vazpi@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/carlosvpi/silk/issues"
+  },
+  "homepage": "https://github.com/carlosvpi/silk#readme"
+}
