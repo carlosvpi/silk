@@ -73,8 +73,8 @@ class Silk {
         return this.value.classList
       }
       if (typeof value === 'string') {
-        this.classList.forEach(cl => this.classList.remove(cl))
-        this.classList.add(value)
+        this.value.classList.forEach(cl => this.value.classList.remove(cl))
+        this.value.classList.add(value)
         return this
       }
       if (typeof value === 'object') {
