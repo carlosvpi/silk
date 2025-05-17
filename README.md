@@ -1,6 +1,6 @@
 <div align="center">
 
-![logo](https://github.com/carlosvpi/silk/blob/main/docs/assets/Rabbit.svg?raw=true)
+![logo](https://github.com/carlosvpi/silk/blob/main/docs/assets/Silk.svg?raw=true)
 
 _Web MVC framework_
 
