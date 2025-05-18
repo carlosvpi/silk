@@ -110,6 +110,5 @@ silk('ul', {}, (add, del, sort) => {
 
 ## Coming soon
 
-* Creating SVGElement nodes with `silk`
 * Typescript
 * Installable node module
