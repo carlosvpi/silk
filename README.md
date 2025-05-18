@@ -9,15 +9,15 @@ Silk
 [Documentation](https://github.com/carlosvpi/silk/blob/main/docs/documentation.md)
 
 </div>
-# silk
 
+# Silk
 
 ## Install
 
 Currently, silk is only available in the browser
 
 ```html
-<script src="silk.js"></script>
+<script src="http://cdn.jsdelivr.net/gh/carlosvpi/silk/silk.js"></script>
 ```
 
 ## Example
