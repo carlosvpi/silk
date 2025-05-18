@@ -35,6 +35,10 @@ function indexBy(sortBy, array, item) {
   return _indexBy(sortBy, array, item, 0, array.length - 1)
 }
 
+svgNs = 'svg,circle,rect,path,line,ellipse,polygon,polyline,text,textPath,image,marker'.split(',')
+const getNs = el => {
+  if (svgNs.includes(el)) return 'http://www.w3.org/2000/svg'
+}
 class Silk { 
   constructor(el) {
     this.value = el
@@ -279,7 +283,7 @@ const setTextContent = (textNode, textContent) => {
   throw new Error(`Invalid argument type "${typeof textContent}" for silk(Text)`)
 }
 const silk = window.silk = (tag, props, children, ...moreChildren) => {
-  if (tag instanceof HTMLElement) {
+  if (tag instanceof HTMLElement || tag instanceof SVGElement) {
     return new Silk(tag)
   }
   if (typeof tag === 'string' && props === undefined) {
@@ -294,7 +298,8 @@ const silk = window.silk = (tag, props, children, ...moreChildren) => {
   if (typeof tag !== 'string') {
     throw new Error(`Invalid argument type "${typeof tag}" for silk`)
   }
-  const el = silk(document.createElement(tag))
+  const ns = getNs(tag)
+  const el = silk(ns ? document.createElementNS(ns, tag) : document.createElement(tag))
   el.props(props)
   el.children(children, ...moreChildren)
   return el.value
