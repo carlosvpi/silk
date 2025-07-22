@@ -134,6 +134,14 @@ class Silk {
     return this
   }
   addChild(child, behaviour) {
+    if (typeof child === 'object' && (child.node instanceof SVGElement || child.node instanceof HTMLElement || child.node instanceof Text)) {
+      const { node, ...rest } = child
+      behaviour = {
+        ...rest,
+        ...behaviour
+      }
+      child = node
+    }
     if (!behaviour) {
       if (typeof child === 'string' || typeof child === 'function') {
         child = silk(child)
@@ -284,7 +292,14 @@ const setTextContent = (textNode, textContent) => {
 }
 const silk = window.silk = (tag, props, children, ...moreChildren) => {
   if (tag instanceof HTMLElement || tag instanceof SVGElement) {
-    return new Silk(tag)
+    const element = new Silk(tag)
+    if (typeof props === 'object' && props) {
+      element.props(props)
+    }
+    if (children) {
+      element.children(children, ...moreChildren)
+    }
+    return element
   }
   if (typeof tag === 'string' && props === undefined) {
     return document.createTextNode(tag)
