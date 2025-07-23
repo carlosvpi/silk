@@ -1,5 +1,3 @@
-silk = silk.default;
-
 addEventListener("load", () => {
   const app = document.getElementById('app');
   if (!app) {
