@@ -1,35 +1,35 @@
-# `text` Function
+# `text`
 
-The `text` function is a utility for reading or updating the `textContent` of a DOM `Text` node.
+Gets or sets the `textContent` of a `Text` node.
 
 ## Usage
 
 ```typescript
 import text from '../src/text';
 
-// Get text content
 const node = document.createTextNode('hello');
-const value = text(node); // 'hello'
 
-// Set text content with a string
-text(node, 'world'); // node.textContent === 'world'
+// Get text content
+text(node); // 'hello'
 
-// Set text content with a number
-text(node, 123); // node.textContent === '123'
+// Set text content
+text(node, 'world');
 
-// Set text content with a function
-text(node, (value) => value() ? value().toUpperCase() : 'default');
+// Set text content with number
+text(node, 123);
 
-// Throws error for invalid argument types
-text(node, {} as any); // throws Error
+// Use function argument
+text(node, prev => prev ? prev.toUpperCase() : 'default');
 ```
 
 ## Parameters
 
-- `node: Text`  
-  The DOM `Text` node to operate on.
+- `node`: Text
+- `arg?`: string | number | ((set: (value: string | number) => any) => any)
 
-- `arg?: string | number | undefined | ((arg: TextArg) => string)`  
+## Returns
+
+- The current or updated text content.
   The value to set, or a function to compute the value.
 
 ## Returns

@@ -1,5 +1,5 @@
-export type Argument<T, TReturn = T> = T | ((f: Accessor<T, TReturn>) => TReturn | void);
-export type Accessor<T, TReturn = T> = (value?: T) => TReturn;
+export type Argument<T> = T | ((f: Accessor<T>) => T | void);
+export type Accessor<T> = (value?: T) => T;
 export type ArgumentRecord<T> = Record<string, Argument<T>> | ((f: AccessorRecord<string, T>) => T | void);
 export type AccessorRecord<T, U> = {
   (key: T, value?: Argument<U>): U;

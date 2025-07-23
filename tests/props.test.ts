@@ -56,7 +56,7 @@ describe('props', () => {
 
   it('sets props using a function argument', () => {
     const div = document.createElement('div');
-    props(div, (set: (value?: any) => any) => {
+    props(div, (set) => {
       set({ id: 'bar', class: { baz: true } });
     });
     expect(div.getAttribute('id')).toBe('bar');

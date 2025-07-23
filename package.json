@@ -5,7 +5,10 @@
   "main": "silk.js",
   "scripts": {
     "test": "jest",
-    "build": "tsc"
+    "transpile": "tsc",
+    "compile": "browserify dist/src/silk.js --standalone silk -o dist/silk.js",
+    "uglify": "uglifyjs dist/silk.js > dist/silk.min.js",
+    "build": "npm run transpile && npm run compile && npm run uglify"
   },
   "repository": {
     "type": "git",
@@ -26,10 +29,11 @@
   "devDependencies": {
     "@testing-library/dom": "^9.3.1",
     "@testing-library/jest-dom": "^6.1.5",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.1.1",
     "@types/jest": "^29.5.11",
-    "jest-environment-jsdom": "^29.7.0"
+    "browserify": "^17.0.1",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "ts-jest": "^29.1.1"
   },
   "jest": {
     "preset": "ts-jest",

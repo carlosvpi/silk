@@ -3,17 +3,17 @@ import attr from './attr';
 import classes from './classes';
 import styles from './styles';
 
-type Prop = ArgumentRecord<string | null | boolean> |
+export type Props = Argument<
+  Record<string, Argument<string | null | boolean>> |
   Record<string, EventHandler> |
   { ref: Ref } |
   { class: ArgumentRecord<boolean> } |
   { style: ArgumentRecord<string | number> }
-
-type PropArg = Argument<Prop, Record<string, string>>
+>
 
 export default function props(
   node: HTMLElement | SVGElement,
-  arg?: PropArg
+  arg?: Props
 ): Record<string, string> {
   switch (typeof arg) {
     case 'undefined':
@@ -44,12 +44,12 @@ export default function props(
       }
       break;
     case 'function':
-      (arg as((f: Accessor<Prop>) => Prop | void))(((value) => {
+      arg((value) => {
         if (value === undefined) {
-          return props(node)
+          return props(node);
         }
-        return props(node, value as PropArg)
-      }));
+        return props(node, value as Props);
+      });
       break;
     default:
       throw new Error(`Invalid argument type for "classes": ${typeof arg}`);

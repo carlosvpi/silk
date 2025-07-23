@@ -16,11 +16,7 @@ export default function style(
     case 'number':
       return ((node.style as any)[styleName] = `${arg}`);
     case 'function':
-      const result = arg(value => style(node, styleName, value));
-      if (result !== undefined) {
-        return (node.style as any)[styleName] = result;
-      }
-      return (node.style as any)[styleName];
+      return style(node, styleName, arg(value => style(node, styleName, value)) ?? undefined);
     default:
       throw new Error(`Invalid argument type for "style": ${typeof arg}`);
   }
