@@ -163,7 +163,7 @@ function addChildren(node, children) {
                     if (typeof child === 'object' && 'child' in child) {
                         (0, addChild_1.default)(node, child.child, child);
                     }
-                    else if (child instanceof HTMLElement || child instanceof SVGElement) {
+                    else if (child instanceof HTMLElement || child instanceof SVGElement || child instanceof Text) {
                         node.appendChild(child);
                     }
                     else if (typeof child === 'string' || typeof child === 'number') {
@@ -183,6 +183,7 @@ function addChildren(node, children) {
                 }
                 return (0, addChild_1.default)(node, value, behaviour);
             });
+            return [...node.childNodes];
         default:
             throw new Error(`Invalid argument type for "addChildren": ${typeof children}`);
     }
@@ -369,7 +370,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.silk = silk;
+exports.default = silk;
 const addChildren_1 = __importDefault(require("./addChildren"));
 const props_1 = __importDefault(require("./props"));
 const text_1 = __importDefault(require("./text"));
@@ -381,6 +382,7 @@ function silk(tag, props, ...children) {
         else if (typeof tag === 'function') {
             const node = document.createTextNode('');
             (0, text_1.default)(node, tag);
+            return node;
         }
         else if (tag instanceof Node) {
             return tag;
@@ -388,10 +390,12 @@ function silk(tag, props, ...children) {
         throw new Error(`Invalid tag type: ${typeof tag}`);
     }
     const node = typeof tag === 'string' ? document.createElement(tag) : tag;
-    (0, props_1.default)(node, props);
-    children = Array.isArray(children[0]) ? children[0] : children;
+    if (props !== null) {
+        (0, props_1.default)(node, props);
+    }
+    const childrenToAdd = typeof children[0] === 'function' ? children[0] : Array.isArray(children[0]) ? children[0] : children;
     if (children.length > 0) {
-        (0, addChildren_1.default)(node, children);
+        (0, addChildren_1.default)(node, childrenToAdd);
     }
     return node;
 }

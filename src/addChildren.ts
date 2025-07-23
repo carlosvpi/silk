@@ -21,7 +21,7 @@ export default function addChildren(
         children.forEach(child => {
           if (typeof child === 'object' && 'child' in child) {
             addChild(node, child.child, child);
-          } else if (child instanceof HTMLElement || child instanceof SVGElement) {
+          } else if (child instanceof HTMLElement || child instanceof SVGElement || child instanceof Text) {
             node.appendChild(child);
           } else if (typeof child === 'string' || typeof child === 'number') {
             node.appendChild(document.createTextNode(`${child}`));
@@ -39,6 +39,7 @@ export default function addChildren(
         }
         return addChild(node, value, behaviour);
       });
+      return [...node.childNodes];
    default:
       throw new Error(`Invalid argument type for "addChildren": ${typeof children}`);
   }
