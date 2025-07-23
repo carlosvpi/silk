@@ -83,7 +83,7 @@ function addChild(node, child, behaviour) {
                     onCancelUnmount();
                     behaviour.isUnmounting = false;
                 }
-                if (behaviour.isMounting) {
+                if (behaviour.isMounting || node.contains(child)) {
                     return false;
                 }
                 behaviour.isMounting = true;
@@ -108,7 +108,7 @@ function addChild(node, child, behaviour) {
                     onCancelMount();
                     behaviour.isMounting = false;
                 }
-                if (behaviour.isUnmounting) {
+                if (behaviour.isUnmounting || !node.contains(child)) {
                     return false;
                 }
                 behaviour.isUnmounting = true;
@@ -182,6 +182,28 @@ function addChildren(node, children) {
                     return [...node.childNodes];
                 }
                 return (0, addChild_1.default)(node, value, behaviour);
+            }, (child) => {
+                switch (typeof child) {
+                    case 'string':
+                        const childNode = [...node.childNodes].find(node => node instanceof Text && node.textContent === child);
+                        if (!childNode) {
+                            return false;
+                        }
+                        node.removeChild(childNode);
+                        return true;
+                    case 'number':
+                        if (node.childNodes.length <= child) {
+                            return false;
+                        }
+                        node.removeChild(node.childNodes[child]);
+                        return true;
+                    default:
+                        if (!node.contains(child)) {
+                            return false;
+                        }
+                        node.removeChild(child);
+                        return true;
+                }
             });
             return [...node.childNodes];
         default:

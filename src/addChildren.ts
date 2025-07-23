@@ -6,8 +6,9 @@ export type BehavedChild = string | number | ChildNode | BehaviourObject & {
 }
 
 export type AddChildType = (value?: ChildNode, behaviour?: BehaviourObject) => ReturnType<typeof addChild> | ChildNode[];
+export type DelChildType = (child: ChildNode | string | number) => void;
 
-export type Children = BehavedChild[] | ((add: AddChildType) => void);
+export type Children = BehavedChild[] | ((add: AddChildType, del: DelChildType) => void);
 
 export default function addChildren(
   node: HTMLElement | SVGElement,
@@ -38,6 +39,28 @@ export default function addChildren(
           return [...node.childNodes];
         }
         return addChild(node, value, behaviour);
+      }, (child: ChildNode | string | number) => {
+        switch (typeof child) {
+          case 'string':
+            const childNode = [...node.childNodes].find(node => node instanceof Text && node.textContent === child);
+            if (!childNode) {
+              return false;
+            }
+            node.removeChild(childNode);
+            return true;
+          case 'number':
+            if (node.childNodes.length <= (child as number)) {
+              return false;
+            }
+            node.removeChild(node.childNodes[child as number]);
+            return true;
+          default:
+            if (!node.contains(child)) {
+              return false;
+            }
+            node.removeChild(child);
+            return true;
+        }
       });
       return [...node.childNodes];
    default:

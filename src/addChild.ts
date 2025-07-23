@@ -93,7 +93,7 @@ export default function addChild(
           onCancelUnmount();
           behaviour.isUnmounting = false;
         }
-        if (behaviour.isMounting) {
+        if (behaviour.isMounting || node.contains(child as ChildNode)) {
           return false;
         }
         behaviour.isMounting = true;
@@ -116,7 +116,7 @@ export default function addChild(
           onCancelMount();
           behaviour.isMounting = false;
         }
-        if (behaviour.isUnmounting) {
+        if (behaviour.isUnmounting || !node.contains(child as ChildNode)) {
           return false;
         }
         behaviour.isUnmounting = true;

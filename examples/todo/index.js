@@ -19,6 +19,10 @@ addEventListener("load", () => {
     todosSubj.next([...todosSubj.getValue(), todo]);
     newTodoInput.current.value = '';
   }
+  const deleteTodo = (todo) => {
+    const todos = todosSubj.getValue().filter(t => t !== todo);
+    todosSubj.next(todos);
+  }
   const newTodoInput = { current: null}
   const todo = silk('div', null,
     silk('h1', null, 'To-Do app'),
@@ -55,6 +59,7 @@ addEventListener("load", () => {
     silk('ul', null, add => {
       newTodoSubj.subscribe(todo => {
         if (!todo) return;
+        let del;
         const child = silk('li', null, 
           silk('span', null, todo.text),
           ' ',
@@ -66,10 +71,13 @@ addEventListener("load", () => {
           })),
           ' ',
           silk('button', {
-            onClick: () => console.log('Delete', todo.text)
+            onClick: () => {
+              deleteTodo(todo)
+              del(child);
+            }
           }, 'Delete'),
         );
-        add(child, {
+        del = add(child, {
           presence: presence => {
             filterSubj.subscribe(filter => {
               presence(filter === 'all' || todo.statusObj.getValue() === filter);
