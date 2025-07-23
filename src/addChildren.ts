@@ -1,7 +1,7 @@
 import { Argument } from "../types";
 import addChild, { BehaviourObject } from "./addChild";
 
-export type BehavedChild = ChildNode | BehaviourObject & {
+export type BehavedChild = string | number | ChildNode | BehaviourObject & {
   child: ChildNode;
 }
 
@@ -23,6 +23,8 @@ export default function addChildren(
             addChild(node, child.child, child);
           } else if (child instanceof HTMLElement || child instanceof SVGElement) {
             node.appendChild(child);
+          } else if (typeof child === 'string' || typeof child === 'number') {
+            node.appendChild(document.createTextNode(`${child}`));
           } else {
             throw new Error(`Invalid child type: ${typeof child}`);
           }

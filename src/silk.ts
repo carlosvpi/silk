@@ -3,7 +3,7 @@ import { default as setChildren, Children, BehavedChild, AddChildType } from "./
 import { default as setProps, Props } from "./props";
 import { default as setText} from "./text";
 
-export default function silk(tag: Node | Argument<string | number>, props: Props, ...children: BehavedChild[] | [((add: AddChildType) => void)]) {
+export function silk(tag: Node | Argument<string | number>, props: Props, ...children: BehavedChild[] | [((add: AddChildType) => void)]) {
   if (props === undefined) {
     if (typeof tag === 'string') {
       return document.createTextNode(tag);

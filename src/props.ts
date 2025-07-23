@@ -1,4 +1,4 @@
-import type { Accessor, Argument, ArgumentRecord, EventHandler, Ref } from '../types';
+import type { Argument, ArgumentRecord, EventHandler, Ref } from '../types';
 import attr from './attr';
 import classes from './classes';
 import styles from './styles';
