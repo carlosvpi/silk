@@ -7,8 +7,9 @@
     "test": "jest",
     "transpile": "tsc",
     "compile": "browserify dist/src/silk.js --standalone silk -o dist/silk.js",
-    "uglify": "uglifyjs dist/silk.js > dist/silk.min.js",
-    "build": "npm run transpile && npm run compile && npm run uglify"
+    "minify": "uglifyjs dist/silk.js > dist/silk.min.js",
+    "compress": "gzip dist/silk.min.js -k",
+    "build": "npm run transpile && npm run compile && npm run minify && npm run compress"
   },
   "repository": {
     "type": "git",
@@ -33,7 +34,8 @@
     "browserify": "^17.0.1",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
-    "ts-jest": "^29.1.1"
+    "ts-jest": "^29.1.1",
+    "uglifyjs": "^2.4.11"
   },
   "jest": {
     "preset": "ts-jest",
