@@ -3,6 +3,15 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = addChild;
 function addChild(node, child, behaviour) {
+    const remove = () => {
+        const result = child;
+        if (typeof child !== 'string' && typeof child !== 'number' && node.contains(child)) {
+            node.removeChild(child);
+        }
+        child = '';
+        behaviour = undefined;
+        return result;
+    };
     switch (typeof behaviour) {
         case 'undefined':
             if (typeof child === 'string' || typeof child === 'number') {
@@ -17,12 +26,11 @@ function addChild(node, child, behaviour) {
                     if (![...node.childNodes].find((node) => node instanceof Text && node.textContent === `${child}`)) {
                         node.appendChild(document.createTextNode(`${child}`));
                     }
-                    return [...node.childNodes].findIndex(node => node instanceof Text && node.textContent === `${child}`);
                 }
-                if (!node.contains(child)) {
+                else if (!node.contains(child)) {
                     node.appendChild(child);
                 }
-                return [...node.childNodes].indexOf(child);
+                return remove;
             }
             else {
                 if (typeof child === 'string' || typeof child === 'number') {
@@ -31,7 +39,7 @@ function addChild(node, child, behaviour) {
                     if (!!childNode) {
                         node.removeChild(childNode);
                     }
-                    return childNodeIndex;
+                    return remove;
                 }
                 const index = [...node.childNodes].indexOf(child);
                 if (node.contains(child)) {
@@ -44,21 +52,21 @@ function addChild(node, child, behaviour) {
                 if (behaviour >= 0) {
                     const childNode = node.childNodes[behaviour];
                     if (childNode instanceof Text && childNode.textContent === `${child}`) {
-                        return false;
+                        return remove;
                     }
                     node.insertBefore(document.createTextNode(`${child}`), node.childNodes[behaviour] || null);
                 }
                 else {
                     const childNode = [...node.childNodes].find(node => node instanceof Text && node.textContent === `${child}`);
                     if (!childNode) {
-                        return false;
+                        return remove;
                     }
                     node.removeChild(childNode);
                 }
-                return behaviour;
+                return remove;
             }
             if (behaviour === [...node.childNodes].indexOf(child)) {
-                return false;
+                return remove;
             }
             if (behaviour >= 0) {
                 node.insertBefore(child, node.childNodes[behaviour] || null);
@@ -66,11 +74,16 @@ function addChild(node, child, behaviour) {
             else if (behaviour < 0) {
                 node.removeChild(child);
             }
-            return behaviour;
+            return remove;
         case 'function':
-            return addChild(node, child, behaviour((value) => {
-                return addChild(node, child, value);
-            }) ?? undefined);
+            behaviour((value) => {
+                const result = addChild(node, child, value);
+                if (typeof result === 'number') {
+                    return result;
+                }
+                return value ?? false;
+            });
+            return remove;
         case 'object':
             const onMount = behaviour.onMount ?? (mount => mount());
             const onUnmount = behaviour.onUnmount ?? (unmount => unmount());
@@ -84,12 +97,12 @@ function addChild(node, child, behaviour) {
                     behaviour.isUnmounting = false;
                 }
                 if (behaviour.isMounting || node.contains(child)) {
-                    return false;
+                    return remove;
                 }
                 behaviour.isMounting = true;
                 const mountLast = presence === true;
                 onMount(() => {
-                    if (!behaviour.isMounting) {
+                    if (typeof behaviour !== 'object' || !behaviour.isMounting) {
                         return false;
                     }
                     if (mountLast) {
@@ -101,7 +114,7 @@ function addChild(node, child, behaviour) {
                     behaviour.isMounting = false;
                     return true;
                 });
-                return true;
+                return remove;
             }
             else if (presence === false || presence === -1) {
                 if (behaviour.isMounting) {
@@ -109,11 +122,11 @@ function addChild(node, child, behaviour) {
                     behaviour.isMounting = false;
                 }
                 if (behaviour.isUnmounting || !node.contains(child)) {
-                    return false;
+                    return remove;
                 }
                 behaviour.isUnmounting = true;
                 onUnmount(() => {
-                    if (!behaviour.isUnmounting) {
+                    if (typeof behaviour !== 'object' || !behaviour.isUnmounting) {
                         return false;
                     }
                     behaviour.isUnmounting = false;
@@ -123,23 +136,32 @@ function addChild(node, child, behaviour) {
                     }
                     return false;
                 });
-                return true;
+                return remove;
             }
             else if (typeof presence === 'function') {
-                return presence(((behaviour) => (value) => {
+                presence(((behaviour) => (value) => {
+                    if (child === '') {
+                        return -1;
+                    }
                     switch (typeof value) {
                         case 'undefined':
-                            return [...node.childNodes].indexOf(child);
+                            break;
                         case 'number':
                         case 'boolean':
                             behaviour.presence = value;
-                            return addChild(node, child, behaviour);
+                            console.log('Setting presence:', value);
+                            addChild(node, child, behaviour);
+                            break;
                         default:
                             throw new Error(`Invalid argument type for "presence": ${typeof presence}`);
                     }
-                })(behaviour)) ?? true;
+                    return [...node.childNodes].indexOf(child);
+                })(behaviour));
+                return remove;
+                ;
             }
-            return true;
+            return remove;
+            ;
         default:
             throw new Error(`Invalid argument type for "addChild": ${typeof behaviour}`);
     }
