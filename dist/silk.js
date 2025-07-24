@@ -92,55 +92,48 @@ function addChild(node, child, behaviour) {
             const presence = behaviour.presence ?? true;
             child = typeof child === 'string' || typeof child === 'number' ? document.createTextNode(`${child}`) : child;
             if (presence === true || (typeof presence === 'number' && presence >= 0)) {
-                if (behaviour.isUnmounting) {
+                if (behaviour.isUnmounting && behaviour.isUnmounting.length > 0) {
                     onCancelUnmount();
-                    behaviour.isUnmounting--;
+                    behaviour.isUnmounting[0] = false;
                 }
-                if (behaviour.isMounting || node.contains(child)) {
-                    return remove;
+                if (!Array.isArray(behaviour.isMounting)) {
+                    behaviour.isMounting = [];
                 }
-                if (typeof behaviour.isMounting !== 'number') {
-                    behaviour.isMounting = 0;
-                }
-                behaviour.isMounting++;
+                behaviour.isMounting.unshift(true);
                 const mountLast = presence === true;
                 onMount(() => {
-                    if (typeof behaviour !== 'object' || !behaviour.isMounting) {
+                    if (typeof behaviour !== 'object' || !Array.isArray(behaviour.isMounting) || !behaviour.isMounting.pop()) {
                         return false;
                     }
-                    if (mountLast) {
-                        node.appendChild(child);
+                    if (!node.contains(child)) {
+                        if (mountLast) {
+                            node.appendChild(child);
+                        }
+                        else {
+                            node.insertBefore(child, node.childNodes[presence] || null);
+                        }
                     }
-                    else {
-                        node.insertBefore(child, node.childNodes[presence] || null);
-                    }
-                    behaviour.isMounting--;
                     return true;
                 });
                 return remove;
             }
             else if (presence === false || presence === -1) {
-                if (behaviour.isMounting) {
+                if (behaviour.isMounting && behaviour.isMounting.length > 0) {
                     onCancelMount();
-                    behaviour.isMounting--;
+                    behaviour.isMounting[0] = false;
                 }
-                if (behaviour.isUnmounting || !node.contains(child)) {
-                    return remove;
+                if (!Array.isArray(behaviour.isUnmounting)) {
+                    behaviour.isUnmounting = [];
                 }
-                if (typeof behaviour.isUnmounting !== 'number') {
-                    behaviour.isUnmounting = 0;
-                }
-                behaviour.isUnmounting++;
+                behaviour.isUnmounting.unshift(true);
                 onUnmount(() => {
-                    if (typeof behaviour !== 'object' || !behaviour.isUnmounting) {
+                    if (typeof behaviour !== 'object' || !Array.isArray(behaviour.isUnmounting) || !behaviour.isUnmounting.pop()) {
                         return false;
                     }
-                    behaviour.isUnmounting--;
                     if (node.contains(child)) {
                         node.removeChild(child);
-                        return true;
                     }
-                    return false;
+                    return true;
                 });
                 return remove;
             }
@@ -157,7 +150,6 @@ function addChild(node, child, behaviour) {
                             if (typeof behaviour !== 'object')
                                 return false;
                             behaviour.presence = value;
-                            console.log('Setting presence:', value);
                             addChild(node, child, behaviour);
                             break;
                         default:

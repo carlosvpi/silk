@@ -87,9 +87,7 @@ addEventListener("load", () => {
           },
           onUnmount: (unmount) => {
             silk(child, { class: { collapse: true}});
-            setTimeout(() => {
-              console.log('Unmounting', unmount());
-            }, 3000);
+            setTimeout(unmount, 3000);
           },
           onCancelUnmount: () => {
             silk(child, { class: { collapse: false}});
