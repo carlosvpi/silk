@@ -15,8 +15,8 @@ addEventListener("load", () => {
       return;
     }
     const todo = { text: newTodoInput.current.value, statusObj: new BehaviorSubject('todo') };
-    newTodoSubj.next(todo);
     todosSubj.next([...todosSubj.getValue(), todo]);
+    newTodoSubj.next(todo);
     newTodoInput.current.value = '';
   }
   const deleteTodo = (todo) => {
@@ -60,7 +60,7 @@ addEventListener("load", () => {
       newTodoSubj.subscribe(todo => {
         if (!todo) return;
         let del;
-        const child = silk('li', null, 
+        const child = silk('li', { class: { todo: true } }, 
           silk('span', null, todo.text),
           ' ',
           silk('button', {
@@ -78,12 +78,34 @@ addEventListener("load", () => {
           }, 'Delete'),
         );
         del = add(child, {
+          onMount: (mount) => {
+            silk(child, { class: { collapse: true}});
+            mount();
+            setTimeout(() => {
+              silk(child, { class: { collapse: false}});
+            }, 0);
+          },
+          onUnmount: (unmount) => {
+            silk(child, { class: { collapse: true}});
+            setTimeout(unmount, 3000);
+          },
+          onCancelUnmount: () => {
+            silk(child, { class: { collapse: false}});
+          },
           presence: presence => {
             filterSubj.subscribe(filter => {
-              presence(filter === 'all' || todo.statusObj.getValue() === filter);
+              if (filter !== 'all' && todo.statusObj.getValue() !== filter) {
+                presence(false);
+              } else {
+                presence(todosSubj.getValue().indexOf(todo));
+              }
             });
             todo.statusObj.subscribe(status => {
-              presence(filterSubj.getValue() === 'all' || status === filterSubj.getValue());
+              if (filterSubj.getValue() !== 'all' && status !== filterSubj.getValue()) {
+                presence(false);
+              } else {
+                presence(todosSubj.getValue().indexOf(todo));
+              }
             });
           }
         });

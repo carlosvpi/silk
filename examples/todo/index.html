@@ -4,6 +4,16 @@
     <script src="../../dist/silk.min.js"></script>
     <!-- <script src="https://cdn.jsdelivr.net/gh/carlosvpi/silk/dist/silk.min.js"></script> -->
     <script src="./index.js"></script>
+    <style>
+      .todo {
+        overflow: hidden;
+        transition: height 1s ease-in-out;
+        height: 35px;
+      }
+      .todo.collapse {
+        height: 0;
+      }
+    </style>
   </head>
   <body>
     <div id="app"></div>
