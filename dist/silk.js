@@ -94,12 +94,15 @@ function addChild(node, child, behaviour) {
             if (presence === true || (typeof presence === 'number' && presence >= 0)) {
                 if (behaviour.isUnmounting) {
                     onCancelUnmount();
-                    behaviour.isUnmounting = false;
+                    behaviour.isUnmounting--;
                 }
                 if (behaviour.isMounting || node.contains(child)) {
                     return remove;
                 }
-                behaviour.isMounting = true;
+                if (typeof behaviour.isMounting !== 'number') {
+                    behaviour.isMounting = 0;
+                }
+                behaviour.isMounting++;
                 const mountLast = presence === true;
                 onMount(() => {
                     if (typeof behaviour !== 'object' || !behaviour.isMounting) {
@@ -111,7 +114,7 @@ function addChild(node, child, behaviour) {
                     else {
                         node.insertBefore(child, node.childNodes[presence] || null);
                     }
-                    behaviour.isMounting = false;
+                    behaviour.isMounting--;
                     return true;
                 });
                 return remove;
@@ -119,17 +122,20 @@ function addChild(node, child, behaviour) {
             else if (presence === false || presence === -1) {
                 if (behaviour.isMounting) {
                     onCancelMount();
-                    behaviour.isMounting = false;
+                    behaviour.isMounting--;
                 }
                 if (behaviour.isUnmounting || !node.contains(child)) {
                     return remove;
                 }
-                behaviour.isUnmounting = true;
+                if (typeof behaviour.isUnmounting !== 'number') {
+                    behaviour.isUnmounting = 0;
+                }
+                behaviour.isUnmounting++;
                 onUnmount(() => {
                     if (typeof behaviour !== 'object' || !behaviour.isUnmounting) {
                         return false;
                     }
-                    behaviour.isUnmounting = false;
+                    behaviour.isUnmounting--;
                     if (node.contains(child)) {
                         node.removeChild(child);
                         return true;
@@ -139,7 +145,7 @@ function addChild(node, child, behaviour) {
                 return remove;
             }
             else if (typeof presence === 'function') {
-                presence(((behaviour) => (value) => {
+                presence((value) => {
                     if (child === '') {
                         return -1;
                     }
@@ -148,6 +154,8 @@ function addChild(node, child, behaviour) {
                             break;
                         case 'number':
                         case 'boolean':
+                            if (typeof behaviour !== 'object')
+                                return false;
                             behaviour.presence = value;
                             console.log('Setting presence:', value);
                             addChild(node, child, behaviour);
@@ -156,7 +164,7 @@ function addChild(node, child, behaviour) {
                             throw new Error(`Invalid argument type for "presence": ${typeof presence}`);
                     }
                     return [...node.childNodes].indexOf(child);
-                })(behaviour));
+                });
                 return remove;
                 ;
             }
