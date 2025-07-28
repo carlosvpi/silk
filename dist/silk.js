@@ -199,34 +199,34 @@ function addChildren(node, children) {
             }
             throw new Error('Invalid children argument: object not array');
         case 'function':
-            children((value, behaviour) => {
-                if (value === undefined) {
-                    return [...node.childNodes];
-                }
-                return (0, addChild_1.default)(node, value, behaviour);
-            }, (child) => {
-                switch (typeof child) {
-                    case 'string':
-                        const childNode = [...node.childNodes].find(node => node instanceof Text && node.textContent === child);
-                        if (!childNode) {
-                            return false;
-                        }
-                        node.removeChild(childNode);
-                        return true;
-                    case 'number':
-                        if (node.childNodes.length <= child) {
-                            return false;
-                        }
-                        node.removeChild(node.childNodes[child]);
-                        return true;
-                    default:
-                        if (!node.contains(child)) {
-                            return false;
-                        }
-                        node.removeChild(child);
-                        return true;
-                }
-            });
+            if (children.length === 1) {
+                children((value, behaviour) => {
+                    if (value === undefined) {
+                        return [...node.childNodes];
+                    }
+                    return (0, addChild_1.default)(node, value, behaviour);
+                });
+            }
+            else if (children.length === 2) {
+                const childrenDelMap = new Map();
+                children((value, behaviour) => {
+                    if (value === undefined) {
+                        return [...node.childNodes];
+                    }
+                    const del = (0, addChild_1.default)(node, value, behaviour);
+                    childrenDelMap.set(value, del);
+                    return del;
+                }, (child) => {
+                    if (!childrenDelMap.has(child)) {
+                        throw new Error(`Child not found: ${child}`);
+                    }
+                    const remove = childrenDelMap.get(child);
+                    if (typeof remove === 'function') {
+                        remove();
+                    }
+                    childrenDelMap.delete(child);
+                });
+            }
             return [...node.childNodes];
         default:
             throw new Error(`Invalid argument type for "addChildren": ${typeof children}`);
