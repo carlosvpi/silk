@@ -42,7 +42,7 @@ export default function addChildren(
           return addChild(node, value, behaviour);
         });
       } else if (children.length === 2) {
-        const childrenDelMap = new Map<ChildNode | string | number, number | (() => void)>();
+        const childrenDelMap = new Map<ChildNode | string | number, number | ReturnType<typeof addChild>>();
         children((value, behaviour) => {
           if (value === undefined) {
             return [...node.childNodes];

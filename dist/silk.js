@@ -2,15 +2,31 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = addChild;
+const caller = (f) => f();
+const noop = () => { };
 function addChild(node, child, behaviour) {
-    const remove = () => {
-        const result = child;
-        if (typeof child !== 'string' && typeof child !== 'number' && node.contains(child)) {
-            node.removeChild(child);
+    let remove = () => {
+        if (typeof behaviour === 'object') {
+            behaviour?._onDelete?.forEach(fn => fn());
+            behaviour = undefined;
+        }
+        const childToRemove = (typeof child === 'string' || typeof child === 'number')
+            ? [...node.childNodes].find(node => node instanceof Text && node.textContent === `${child}`)
+            : child;
+        if (childToRemove !== undefined && node.contains(childToRemove)) {
+            if (childToRemove instanceof Element) {
+                [...childToRemove.getAttributeNames()].forEach(attr => {
+                    childToRemove.removeAttribute(attr);
+                });
+                childToRemove.classList.forEach(cls => childToRemove.classList.remove(cls));
+            }
+            node.removeChild(childToRemove);
+            childToRemove.remove();
+            remove = undefined;
         }
         child = '';
         behaviour = undefined;
-        return result;
+        return childToRemove ?? false;
     };
     switch (typeof behaviour) {
         case 'undefined':
@@ -76,20 +92,28 @@ function addChild(node, child, behaviour) {
             }
             return remove;
         case 'function':
+            let removeChild = false;
             behaviour((value) => {
-                const result = addChild(node, child, value);
-                if (typeof result === 'number') {
-                    return result;
+                if (!behaviour) {
+                    return removeChild = false;
+                }
+                removeChild = addChild(node, child, value);
+                if (typeof removeChild === 'number') {
+                    return removeChild;
                 }
                 return value ?? false;
-            });
+            }, () => typeof removeChild === 'function' ? removeChild() : removeChild);
             return remove;
         case 'object':
-            const onMount = behaviour.onMount ?? (mount => mount());
-            const onUnmount = behaviour.onUnmount ?? (unmount => unmount());
-            const onCancelMount = behaviour.onCancelMount ?? (() => { });
-            const onCancelUnmount = behaviour.onCancelUnmount ?? (() => { });
-            const presence = behaviour.presence ?? true;
+            let onMount = behaviour.onMount ?? caller;
+            let onUnmount = behaviour.onUnmount ?? caller;
+            let onCancelMount = behaviour.onCancelMount ?? noop;
+            let onCancelUnmount = behaviour.onCancelUnmount ?? noop;
+            let presence = behaviour.presence ?? true;
+            behaviour._onDelete || (behaviour._onDelete = []);
+            if (behaviour.onDelete) {
+                behaviour._onDelete.push(behaviour.onDelete);
+            }
             child = typeof child === 'string' || typeof child === 'number' ? document.createTextNode(`${child}`) : child;
             if (presence === true || (typeof presence === 'number' && presence >= 0)) {
                 if (behaviour.isUnmounting && behaviour.isUnmounting.length > 0) {
@@ -100,13 +124,12 @@ function addChild(node, child, behaviour) {
                     behaviour.isMounting = [];
                 }
                 behaviour.isMounting.unshift(true);
-                const mountLast = presence === true;
-                onMount(() => {
+                const cancelMount = onMount(() => {
                     if (typeof behaviour !== 'object' || !Array.isArray(behaviour.isMounting) || !behaviour.isMounting.pop()) {
                         return false;
                     }
-                    if (!node.contains(child)) {
-                        if (mountLast) {
+                    if ((presence === true && !node.contains(child)) || (typeof presence === 'number' && node.children[presence] !== child)) {
+                        if (presence === true) {
                             node.appendChild(child);
                         }
                         else {
@@ -115,6 +138,9 @@ function addChild(node, child, behaviour) {
                     }
                     return true;
                 });
+                if (typeof cancelMount === 'function') {
+                    behaviour._onDelete.push(cancelMount);
+                }
                 return remove;
             }
             else if (presence === false || presence === -1) {
@@ -126,7 +152,7 @@ function addChild(node, child, behaviour) {
                     behaviour.isUnmounting = [];
                 }
                 behaviour.isUnmounting.unshift(true);
-                onUnmount(() => {
+                const cancelUnmount = onUnmount(() => {
                     if (typeof behaviour !== 'object' || !Array.isArray(behaviour.isUnmounting) || !behaviour.isUnmounting.pop()) {
                         return false;
                     }
@@ -135,10 +161,20 @@ function addChild(node, child, behaviour) {
                     }
                     return true;
                 });
+                if (typeof cancelUnmount === 'function') {
+                    behaviour._onDelete.push(cancelUnmount);
+                }
                 return remove;
             }
             else if (typeof presence === 'function') {
                 presence((value) => {
+                    if (!behaviour) {
+                        onMount = caller;
+                        onUnmount = caller;
+                        onCancelMount = noop;
+                        onCancelUnmount = noop;
+                        return presence = -1;
+                    }
                     if (child === '') {
                         return -1;
                     }
@@ -158,10 +194,8 @@ function addChild(node, child, behaviour) {
                     return [...node.childNodes].indexOf(child);
                 });
                 return remove;
-                ;
             }
             return remove;
-            ;
         default:
             throw new Error(`Invalid argument type for "addChild": ${typeof behaviour}`);
     }
@@ -512,10 +546,9 @@ function text(node, arg) {
             return node.textContent = `${arg}`;
         case 'function':
             const result = arg(value => text(node, value));
-            if (result !== undefined) {
-                return node.textContent = `${result}`;
-            }
-            return node.textContent ?? '';
+            return result === undefined
+                ? node.textContent ?? ''
+                : text(node, result);
         default:
             throw new Error(`Invalid argument type for "text": ${typeof arg}`);
     }

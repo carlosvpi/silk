@@ -19,7 +19,21 @@ describe('style', () => {
     expect(div.style.opacity).toBe('0.5');
   });
 
-  it('sets the style using a function', () => {
+  it('sets the style using a function that returns the new value', () => {
+    const div = document.createElement('div');
+    div.style.opacity = '0.5';
+    style(div, 'opacity', prev => prev() === '0.5' ? '1' : '0.5');
+    expect(div.style.opacity).toBe('1');
+  });
+
+  it('sets the style using a function that returns void', () => {
+    const div = document.createElement('div');
+    div.style.opacity = '0.5';
+    style(div, 'opacity', prev => prev(prev() === '0.5' ? '1' : '0.5'));
+    expect(div.style.opacity).toBe('1');
+  });
+
+  it('sets the style using a function that returns the new value', () => {
     const div = document.createElement('div');
     div.style.opacity = '0.5';
     style(div, 'opacity', prev => prev() === '0.5' ? '1' : '0.5');

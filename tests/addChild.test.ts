@@ -33,7 +33,12 @@ describe('addChild', () => {
     const idx = addChild(parent, child, true);
     expect(parent.children.length).toBe(1);
     expect(parent.children[0]).toBe(child);
-    expect(idx).toBe(0);
+    expect(typeof idx).toBe('function');
+    if (typeof idx === 'function') {
+      expect(idx()).toBe(child);
+      expect(parent.children.length).toBe(0);
+      expect(child.parentNode).toBe(null);
+    }
   });
 
   it('removes child when behaviour is false, returns its old index when it was a child', () => {
@@ -54,14 +59,24 @@ describe('addChild', () => {
     parent.appendChild(other);
     const idx = addChild(parent, child, 0);
     expect(parent.children[0]).toBe(child);
-    expect(idx).toBe(0);
+    expect(typeof idx).toBe('function');
+    if (typeof idx === 'function') {
+      expect(idx()).toBe(child);
+      expect(parent.children.length).toBe(1);
+      expect(child.parentNode).toBe(null);
+    }
   });
 
   it('removes child when behaviour is -1', () => {
     parent.appendChild(child);
     const idx = addChild(parent, child, -1);
     expect(parent.children.length).toBe(0);
-    expect(idx).toBe(-1);
+    expect(typeof idx).toBe('function');
+    if (typeof idx === 'function') {
+      expect(idx()).toBe(child);
+      expect(parent.children.length).toBe(0);
+      expect(child.parentNode).toBe(null);
+    }
   });
 
   it('calls onMount and onUnmount in behaviour object', () => {
@@ -80,19 +95,19 @@ describe('addChild', () => {
   it('calls onCancelMount and onCancelUnmount if mountingState is set', () => {
     const onCancelMount = jest.fn();
     const onCancelUnmount = jest.fn();
-    const behaviour = { onCancelUnmount, onCancelMount, presence: true, isMounting: true, isUnmounting: true }
+    const behaviour = { onCancelUnmount, onCancelMount, presence: true, isMounting: [true], isUnmounting: [true] }
     // Mounting: should call onCancelUnmount and reset isUnmounting
     addChild(parent, child, behaviour);
     expect(onCancelUnmount).toHaveBeenCalled();
-    expect(behaviour.isUnmounting).toBe(false);
+    expect(behaviour.isUnmounting).toEqual([false]);
     addChild(parent, child, true);
     expect(parent.children[0]).toBe(child);
     // Unmounting: should call onCancelMount and reset isMounting
-    behaviour.isMounting = true;
+    behaviour.isMounting = [true];
     behaviour.presence = false;
     addChild(parent, child, behaviour);
     expect(onCancelMount).toHaveBeenCalled();
-    expect(behaviour.isMounting).toBe(false);
+    expect(behaviour.isMounting).toEqual([false]);
   });
 
   it('calls onCancelMount and onCancelUnmount if presence is a function', () => {
@@ -104,34 +119,40 @@ describe('addChild', () => {
       onCancelUnmount,
       onCancelMount,
       onMount: (mount) => {
-        setTimeout(() => {
+        const token = setTimeout(() => {
           onMount(mount());
         }, 1000)
+        return () => {
+          clearTimeout(token);
+        };
       },
       onUnmount: (unmount) => {
-        setTimeout(() => {
+        const token = setTimeout(() => {
           onUnmount(unmount());
         }, 1000)
+        return () => {
+          clearTimeout(token);
+        };
       },
       presence: (presence) => {
         expect(presence()).toBe(-1);
-        expect(presence(true)).toBe(true);
+        expect(presence(true)).toBe(-1);
         expect(presence()).toBe(-1);
         jest.advanceTimersByTime(1000);
         expect(onMount).toHaveBeenLastCalledWith(true);
         expect(presence()).toBe(0);
-        expect(presence(false)).toBe(true);
-        expect(presence(true)).toBe(true);
+        expect(presence(false)).toBe(0);
+        expect(presence(true)).toBe(0);
         expect(onCancelUnmount).toHaveBeenCalledTimes(1);
         jest.advanceTimersByTime(1000);
         expect(onMount).toHaveBeenCalledTimes(2);
         expect(onMount).toHaveBeenLastCalledWith(true);
         expect(onUnmount).toHaveBeenCalledTimes(1);
         expect(onUnmount).toHaveBeenCalledWith(false);
-        expect(presence(false)).toBe(true);
-        expect(presence(true)).toBe(true);
+        expect(presence(false)).toBe(0);
+        expect(presence(true)).toBe(0);
         jest.advanceTimersByTime(500);
-        expect(presence(false)).toBe(true);
+        expect(presence(false)).toBe(0);
         expect(onCancelUnmount).toHaveBeenCalledTimes(2);
         expect(onCancelMount).toHaveBeenCalledTimes(1);
         jest.advanceTimersByTime(500);
@@ -175,22 +196,40 @@ describe('addChild', () => {
   it('handles not adding a string child that already exists', () => {
     parent.appendChild(document.createTextNode('Lorem'));
     parent.appendChild(document.createTextNode('Ipsum'));
-    expect(addChild(parent, 'Ipsum', 1)).toBe(false);
+    const remove = addChild(parent, 'Ipsum', 1)
+    expect(parent.childNodes.length).toBe(2);
+    expect(typeof remove).toBe('function');
+    if (typeof remove === 'function') {
+      expect((remove() as unknown as Text).textContent).toBe('Ipsum');
+      expect(parent.childNodes.length).toBe(1);
+      expect(parent.childNodes[0].textContent).toBe('Lorem');
+    }
   });
 
   it('handles adding a string child in a specific location', () => {
     parent.appendChild(document.createTextNode('Lorem'));
     parent.appendChild(document.createTextNode('Consectetur'));
-    expect(addChild(parent, 'Ipsum', 1)).toBe(1);
+    const remove = addChild(parent, 'Ipsum', 1)
+    expect(typeof remove).toBe('function');
     expect(parent.childNodes.length).toBe(3);
     expect(parent.childNodes[1].textContent).toBe('Ipsum');
+    expect(parent.textContent).toBe('LoremIpsumConsectetur');
   });
 
   it('handles behaviour as a function', () => {
     let called = false;
-    addChild(parent, child, (set) => {
+    addChild(parent, child, (set, del) => {
       called = true;
-      set(true);
+      expect(set()).toBe(-1);
+      expect(parent.contains(child)).toBe(false)
+      expect(set(true)).toBe(true);
+      expect(set()).toBe(0);
+      expect(parent.contains(child)).toBe(true)
+      expect(set(false)).toBe(0);
+      expect(set()).toBe(-1);
+      expect(parent.contains(child)).toBe(false)
+      expect(del()).toBe(-1);
+      expect(set(true)).toBe(true);
     });
     expect(called).toBe(true);
     expect(parent.children[0]).toBe(child);

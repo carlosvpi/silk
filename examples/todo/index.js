@@ -1,8 +1,9 @@
 silk = silk.default;
-const BehaviorSubject = rxjs.BehaviorSubject;
 
 function wait(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise(resolve => {
+    const token = setTimeout(() => resolve(() => clearTimeout(token)), ms)
+  });
 }
 
 addEventListener("load", () => {
@@ -11,16 +12,16 @@ addEventListener("load", () => {
     console.error("App element not found");
     return;
   }
-  const filterSubj = new BehaviorSubject('all');
-  const todosSubj = new BehaviorSubject([]);
-  const newTodoSubj = new BehaviorSubject();
+  const filterSubj = new Phant('all');
+  const todosSubj = new Phant([]);
+  const newTodoSubj = new Phant();
   const addTodo = (value) => {
-    const todo = { text: value, statusSubj: new BehaviorSubject('todo') };
+    const todo = { text: value, statusSubj: new Phant('todo') };
     todosSubj.next([...todosSubj.getValue(), todo]);
     newTodoSubj.next(todo);
     return todo;
   }
-  const todoDelMap = new Map();
+  const todoDelMap = window.todoDelMap = new Map();
   const deleteDoneTodos = () => {
     const todos = todosSubj.getValue().filter(t => t.statusSubj.getValue() !== 'done');
     const todosToDel = todosSubj.getValue().filter(t => t.statusSubj.getValue() === 'done');
@@ -28,6 +29,7 @@ addEventListener("load", () => {
     todosToDel.forEach(todo => {
       if (todo.statusSubj.getValue() === 'done') {
         const del = todoDelMap.get(todo);
+        todo.statusSubj.end()
         if (del) {
           del();
           todoDelMap.delete(todo)
@@ -42,6 +44,8 @@ addEventListener("load", () => {
     if (del) {
       del();
       todoDelMap.delete(todo)
+      todo.statusSubj.end()
+      delete todo.statusSubj
     }
   }
   const newTodoInput = { current: null}
@@ -49,7 +53,7 @@ addEventListener("load", () => {
     addTodo(newTodoInput.current.value);
     newTodoInput.current.value = '';
   }
-  const todo = silk('div', null,
+  const todoApp = silk('div', null,
     silk('h1', null, 'To-Do app'),
     silk('div', null, 
       silk('input', {
@@ -69,7 +73,7 @@ addEventListener("load", () => {
         onClick: () => filterSubj.next('all')
       }, 'All'),
       silk('button', {
-        disabled: disabled => {filterSubj.subscribe(filter => disabled(filter === 'todo')); return false},
+        disabled: disabled => {filterSubj.subscribe(filter => disabled(filter === 'todoApp')); return false},
         onClick: () => filterSubj.next('todo')
       }, 'To do'),
       silk('button', {
@@ -98,7 +102,8 @@ addEventListener("load", () => {
       newTodoSubj.subscribe(todo => {
         if (!todo) return;
         let del;
-        const child = silk('li', { class: { todo: true } }, 
+        let ubsubscribeFilter;
+        let child = silk('li', { class: { todo: true } }, 
           silk('span', null, todo.text),
           ' ',
           silk('button', {
@@ -130,7 +135,7 @@ addEventListener("load", () => {
             silk(child, { class: { collapse: false}});
           },
           presence: presence => {
-            filterSubj.subscribe(filter => {
+            ubsubscribeFilter = filterSubj.subscribe(filter => {
               if (filter !== 'all' && todo.statusSubj.getValue() !== filter) {
                 presence(false);
               } else {
@@ -144,24 +149,19 @@ addEventListener("load", () => {
                 presence(todosSubj.getValue().indexOf(todo));
               }
             });
+          },
+          onDelete: function deletingxD () {
+            if (typeof ubsubscribeFilter === 'function') {
+              ubsubscribeFilter();
+            }
+            ubsubscribeFilter = undefined;
+            child = undefined;
+            del = undefined;
           }
         });
         todoDelMap.set(todo, del);
       });
     })
   );
-  silk(app, null, todo);
-
-  // ;(async() => {
-  //   await wait(1000);
-  //   filterSubj.next('todo')
-  //   await wait(1000);
-  //   const tasks = [];
-  //   for (let i = 0; i < 10000; i++) {
-  //     tasks.push(addTodo(`Task ${i + 1}`));
-  //     if (tasks.length > 10) tasks[tasks.length - 10].statusSubj.next('done');
-  //     if (tasks.length > 100) deleteTodo(tasks.shift());
-  //     await wait(5);
-  //   }
-  // })();
+  silk(app, null, todoApp);
 });

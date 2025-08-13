@@ -10,10 +10,9 @@ export default function text(node: Text, arg?: Argument<string | number>): strin
       return node.textContent = `${arg}`;
     case 'function':
       const result = arg(value => text(node, value));
-      if (result !== undefined) {
-        return node.textContent = `${result}`;
-      }
-      return node.textContent ?? '';
+      return result === undefined
+        ? node.textContent ?? ''
+        : text(node, result)
     default:
       throw new Error(`Invalid argument type for "text": ${typeof arg}`);
   }
