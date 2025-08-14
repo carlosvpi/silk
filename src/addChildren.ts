@@ -1,4 +1,3 @@
-import { Argument } from "../types";
 import addChild, { BehaviourObject } from "./addChild";
 
 export type BehavedChild = string | number | ChildNode | BehaviourObject & {

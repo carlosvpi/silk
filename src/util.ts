@@ -1,0 +1,17 @@
+export interface ObserveCalled<T = never, U = void> {
+  (...args: T[]): U;
+  hasBeenCalled: boolean;
+}
+export const observeCalled = <T, U>(f: (...args: T[]) => U): ObserveCalled<T, U> => {
+  const _ = function (...args: T[]) {
+    _.hasBeenCalled = true
+    return f(...args)
+  }
+  _.hasBeenCalled = false
+  return _
+}
+observeCalled.hasBeenCalled = <T, U>(f: undefined | ObserveCalled<T, U>) => {
+  return typeof f === 'function' && f !== null && f.hasBeenCalled
+}
+
+export const noop = () => {}
