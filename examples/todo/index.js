@@ -73,7 +73,7 @@ addEventListener("load", () => {
         onClick: () => filterSubj.next('all')
       }, 'All'),
       silk('button', {
-        disabled: disabled => {filterSubj.subscribe(filter => disabled(filter === 'todoApp')); return false},
+        disabled: disabled => {filterSubj.subscribe(filter => disabled(filter === 'todo')); return false},
         onClick: () => filterSubj.next('todo')
       }, 'To do'),
       silk('button', {
@@ -129,7 +129,7 @@ addEventListener("load", () => {
           },
           onUnmount: (unmount) => {
             silk(child, { class: { collapse: true}});
-            setTimeout(unmount, 3000);
+            setTimeout(unmount, 1000);
           },
           onCancelUnmount: () => {
             silk(child, { class: { collapse: false}});

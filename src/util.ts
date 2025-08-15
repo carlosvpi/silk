@@ -2,7 +2,8 @@ export interface ObserveCalled<T = never, U = void> {
   (...args: T[]): U;
   hasBeenCalled: boolean;
 }
-export const observeCalled = <T, U>(f: (...args: T[]) => U): ObserveCalled<T, U> => {
+export const observeCalled = <T, U>(f: (...args: T[]) => U): ObserveCalled<T, U> | undefined => {
+  if (!f) return undefined
   const _ = function (...args: T[]) {
     _.hasBeenCalled = true
     return f(...args)

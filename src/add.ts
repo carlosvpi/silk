@@ -8,6 +8,8 @@ export type AddAccessor<T> = (value?: T) => T | Promise<T>;
 export interface Behaviour {
   onMount: (mount: () => number) => (() => void);
   onUnmount: (unmount: () => number) => (() => void);
+  onCancelMount?: ObserveCalled;
+  onCancelUnmount?: ObserveCalled;
 }
 
 const defaultBehaviour: Behaviour = {
@@ -21,9 +23,7 @@ export default function add(
   presence?: Argument<number | boolean, AddAccessor<number | boolean>>,
   behaviour?: Behaviour
 ): number | Promise<number> {
-  behaviour ||= defaultBehaviour
-  let onCancelMount: undefined | ObserveCalled
-  let onCancelUnmount: undefined | ObserveCalled
+  behaviour ||= {...defaultBehaviour}
   switch (typeof presence) {
     case 'undefined':
       const childNode = typeof child === 'string' || typeof child === 'number'
@@ -33,19 +33,27 @@ export default function add(
     case 'boolean':
     case 'number':
       return new Promise((resolve) => {
-        if (presence === true || presence as number >= 0) {
-          onCancelUnmount?.()
-          onCancelMount?.()
-          onCancelMount = observeCalled(behaviour.onMount(() => {
+        if (presence === true || (typeof presence === 'number' && presence >= 0)) {
+          behaviour.onCancelUnmount?.()
+          behaviour.onCancelMount?.()
+          const childNode = (typeof child === 'string' || typeof child === 'number'
+            ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
+            : child)
+          const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1
+          if (failIndex >= 0) {
+            resolve(failIndex)
+            return
+          }
+          behaviour.onCancelMount = observeCalled(behaviour.onMount(() => {
             const childNode = (typeof child === 'string' || typeof child === 'number'
               ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
               : child)
-            if (observeCalled.hasBeenCalled(onCancelMount)) {
+            if (observeCalled.hasBeenCalled(behaviour.onCancelMount)) {
               const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1
               resolve(failIndex)
               return failIndex
             }
-            onCancelMount = undefined
+            behaviour.onCancelMount = undefined
             const addendo = childNode ?? document.createTextNode(`${child}`)
             if (presence === true) {
               if (!node.contains(addendo)) {
@@ -61,29 +69,38 @@ export default function add(
             return index
           }))
         } else {
-          onCancelMount?.()
-          onCancelUnmount?.()
-          onCancelUnmount = observeCalled(behaviour.onUnmount(() => {
+          behaviour.onCancelMount?.()
+          behaviour.onCancelUnmount?.()
+          const childNode = (typeof child === 'string' || typeof child === 'number'
+            ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
+            : child)
+          const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1
+          if (failIndex === -1) {
+            resolve(failIndex)
+            return
+          }
+          behaviour.onCancelUnmount = observeCalled(behaviour.onUnmount(() => {
             const childNode = (typeof child === 'string' || typeof child === 'number'
               ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
               : child)
-            if (observeCalled.hasBeenCalled(onCancelUnmount)) {
+            if (observeCalled.hasBeenCalled(behaviour.onCancelUnmount)) {
               const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1
               resolve(failIndex)
               return failIndex
             }
+            behaviour.onCancelUnmount = undefined
             if (childNode && node.contains(childNode)) {
               node.removeChild(childNode)
             }
-            const index = childNode ? [...node.childNodes].indexOf(childNode) : -1
-            resolve(index)
-            return index
-
+            resolve(-1)
+            return -1
           }))
         }
       })
     case 'function':
-      const value = presence(value => add(node, child, value)) ?? undefined
+      const value = presence(value => {
+        return add(node, child, value, behaviour)
+      }) ?? undefined
       if (value === undefined) {
         const childNode = (typeof child === 'string' || typeof child === 'number'
           ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
