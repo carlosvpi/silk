@@ -21,32 +21,21 @@ addEventListener("load", () => {
     newTodoSubj.next(todo);
     return todo;
   }
-  const todoDelMap = window.todoDelMap = new Map();
   const deleteDoneTodos = () => {
     const todos = todosSubj.getValue().filter(t => t.statusSubj.getValue() !== 'done');
     const todosToDel = todosSubj.getValue().filter(t => t.statusSubj.getValue() === 'done');
     todosSubj.next(todos);
     todosToDel.forEach(todo => {
       if (todo.statusSubj.getValue() === 'done') {
-        const del = todoDelMap.get(todo);
         todo.statusSubj.end()
-        if (del) {
-          del();
-          todoDelMap.delete(todo)
-        }
       }
     });
   }
   const deleteTodo = (todo) => {
     const todos = todosSubj.getValue().filter(t => t !== todo);
     todosSubj.next(todos);
-    const del = todoDelMap.get(todo);
-    if (del) {
-      del();
-      todoDelMap.delete(todo)
-      todo.statusSubj.end()
-      delete todo.statusSubj
-    }
+    todo.statusSubj.end()
+    delete todo.statusSubj
   }
   const newTodoInput = { current: null}
   const addTodoFromInput = () => {
@@ -70,15 +59,15 @@ addEventListener("load", () => {
     silk('div', null,
       silk('button', {
         disabled: disabled => {filterSubj.subscribe(filter => disabled(filter === 'all')); return true},
-        onClick: () => filterSubj.next('all')
+        onClick: () => console.log('all') || filterSubj.next('all')
       }, 'All'),
       silk('button', {
         disabled: disabled => {filterSubj.subscribe(filter => disabled(filter === 'todo')); return false},
-        onClick: () => filterSubj.next('todo')
+        onClick: () => console.log('todo') || filterSubj.next('todo')
       }, 'To do'),
       silk('button', {
         disabled: disabled => {filterSubj.subscribe(filter => disabled(filter === 'done')); return false},
-        onClick: () => filterSubj.next('done')
+        onClick: () => console.log('done') || filterSubj.next('done')
       }, 'Done'),
     ),
     silk('p', null,
@@ -94,15 +83,12 @@ addEventListener("load", () => {
       ' tasks left!'
     ),
     silk('button', {
-      onClick: () => {
-        deleteDoneTodos();
-      }
+      onClick: deleteDoneTodos
     }, 'Clear Completed Tasks'),
     silk('ul', null, add => {
       newTodoSubj.subscribe(todo => {
         if (!todo) return;
-        let del;
-        let ubsubscribeFilter;
+        let unsubscribe
         let child = silk('li', { class: { todo: true } }, 
           silk('span', null, todo.text),
           ' ',
@@ -116,26 +102,19 @@ addEventListener("load", () => {
           silk('button', {
             onClick: () => {
               deleteTodo(todo)
+              add(child, false)
             }
           }, 'Delete'),
         );
-        del = add(child, {
-          onMount: (mount) => {
-            silk(child, { class: { collapse: true}});
-            mount();
-            setTimeout(() => {
-              silk(child, { class: { collapse: false}});
-            }, 0);
-          },
-          onUnmount: (unmount) => {
-            silk(child, { class: { collapse: true}});
-            setTimeout(unmount, 1000);
-          },
-          onCancelUnmount: () => {
-            silk(child, { class: { collapse: false}});
-          },
-          presence: presence => {
-            ubsubscribeFilter = filterSubj.subscribe(filter => {
+        todo.statusSubj.subscribe((_, { done }) => {
+          if (!done) return
+          add(child, false)
+          unsubscribe?.()
+        })
+        add(
+          child,
+          presence => {
+            unsubscribe = filterSubj.subscribe(filter => {
               if (filter !== 'all' && todo.statusSubj.getValue() !== filter) {
                 presence(false);
               } else {
@@ -150,16 +129,29 @@ addEventListener("load", () => {
               }
             });
           },
-          onDelete: function deletingxD () {
-            if (typeof ubsubscribeFilter === 'function') {
-              ubsubscribeFilter();
-            }
-            ubsubscribeFilter = undefined;
-            child = undefined;
-            del = undefined;
+          {
+            onMount: (mount) => {
+              // console.log('Mounting ', child.textContent)
+              silk(child, { class: { collapse: true}});
+              mount();
+              setTimeout(() => {
+                silk(child, { class: { collapse: false}});
+              }, 0);
+            },
+            onUnmount: (unmount) => {
+              // console.log('Unmounting ', child.textContent)
+              silk(child, { class: { collapse: true}});
+              setTimeout(() => {
+                const index = unmount()
+                // console.log('Unmount index of ', child.textContent, ' is ', index)
+              }, 1000);
+              return () => {
+                console.log('Cancelling unmount of ', child.textContent)
+                silk(child, { class: { collapse: false}});
+              }
+            },
           }
-        });
-        todoDelMap.set(todo, del);
+        );
       });
     })
   );

@@ -1,5 +1,5 @@
 import { Argument } from "../types";
-import { default as setChildren, Children, BehavedChild, AddChildType } from "./addChildren";
+import { default as setChildren, Children, BehavedChild, AddChildType } from "./adds";
 import { default as setProps, Props } from "./props";
 import { default as setText} from "./text";
 

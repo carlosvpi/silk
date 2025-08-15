@@ -8,7 +8,7 @@ export type BehavedChild = Child | PresentialBehaviour & {
   child: Child;
 }
 
-export type AddChildType = (value?: Child, behaviour?: PresentialBehaviour) => ReturnType<typeof add> | ChildNode[];
+export type AddChildType = (value?: Child, presence?: Argument<number | boolean, AddAccessor<number | boolean>>, behaviour?: Behaviour) => ReturnType<typeof add> | ChildNode[];
 export type DelChildType = (child: Child) => void;
 
 export type Children = BehavedChild[] | ((add: AddChildType, del?: DelChildType) => void);
@@ -27,7 +27,12 @@ export default function adds(
       children.forEach(child => {
         if (typeof child === 'object' && 'child' in child) {
           add(node, child.child, child.presence, child);
-        } else if (child instanceof HTMLElement || child instanceof SVGElement || child instanceof Text || typeof child === 'string' || typeof child === 'number') {
+          return
+        }
+        if (typeof child === 'string' || typeof child === 'number') {
+          child = document.createTextNode(`${child}`)
+        }
+        if (child instanceof HTMLElement || child instanceof SVGElement || child instanceof Text) {
           add(node, child, true);
         } else {
           throw new Error(`Invalid child type: ${typeof child}`);
@@ -35,11 +40,11 @@ export default function adds(
       });
       return [...node.childNodes];
     case 'function':
-      children((value, behaviour) => {
+      children((value, presence, behaviour) => {
         if (value === undefined) {
           return [...node.childNodes];
         }
-        return add(node, value, behaviour?.presence, behaviour);
+        return add(node, value, presence, behaviour);
       });
       return [...node.childNodes];
    default:

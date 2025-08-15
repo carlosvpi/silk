@@ -1,273 +1,214 @@
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.silk = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 "use strict";
+// This file is an alternative implementation for addChild.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = addChild;
-const caller = (f) => f();
-const noop = () => { };
-function addChild(node, child, behaviour) {
-    let remove = () => {
-        if (typeof behaviour === 'object') {
-            behaviour?._onDelete?.forEach(fn => fn());
-            behaviour = undefined;
-        }
-        const childToRemove = (typeof child === 'string' || typeof child === 'number')
-            ? [...node.childNodes].find(node => node instanceof Text && node.textContent === `${child}`)
-            : child;
-        if (childToRemove !== undefined && node.contains(childToRemove)) {
-            if (childToRemove instanceof Element) {
-                [...childToRemove.getAttributeNames()].forEach(attr => {
-                    childToRemove.removeAttribute(attr);
-                });
-                childToRemove.classList.forEach(cls => childToRemove.classList.remove(cls));
-            }
-            node.removeChild(childToRemove);
-            childToRemove.remove();
-            remove = undefined;
-        }
-        child = '';
-        behaviour = undefined;
-        return childToRemove ?? false;
-    };
-    switch (typeof behaviour) {
+exports.default = add;
+const util_1 = require("./util");
+const defaultBehaviour = {
+    onMount: mount => { mount(); return util_1.noop; },
+    onUnmount: unmount => { unmount(); return util_1.noop; },
+};
+function add(node, child, presence, behaviour) {
+    behaviour || (behaviour = { ...defaultBehaviour, onCancelUnmount: [], onCancelMount: [] });
+    behaviour.onCancelUnmount || (behaviour.onCancelUnmount = []);
+    behaviour.onCancelMount || (behaviour.onCancelMount = []);
+    switch (typeof presence) {
         case 'undefined':
-            if (typeof child === 'string' || typeof child === 'number') {
-                return [...node.childNodes].findIndex(node => node instanceof Text && node.textContent === `${child}`);
-            }
-            else {
-                return [...node.childNodes].indexOf(child);
-            }
+            const childNode = typeof child === 'string' || typeof child === 'number'
+                ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
+                : child;
+            return childNode ? [...node.childNodes].indexOf(childNode) : -1;
         case 'boolean':
-            if (behaviour) {
-                if (typeof child === 'string' || typeof child === 'number') {
-                    if (![...node.childNodes].find((node) => node instanceof Text && node.textContent === `${child}`)) {
-                        node.appendChild(document.createTextNode(`${child}`));
-                    }
-                }
-                else if (!node.contains(child)) {
-                    node.appendChild(child);
-                }
-                return remove;
-            }
-            else {
-                if (typeof child === 'string' || typeof child === 'number') {
-                    const childNodeIndex = [...node.childNodes].findIndex((node) => node instanceof Text && node.textContent === `${child}`);
-                    const childNode = node.childNodes[childNodeIndex];
-                    if (!!childNode) {
-                        node.removeChild(childNode);
-                    }
-                    return remove;
-                }
-                const index = [...node.childNodes].indexOf(child);
-                if (node.contains(child)) {
-                    node.removeChild(child);
-                }
-                return index;
-            }
         case 'number':
-            if (typeof child === 'string' || typeof child === 'number') {
-                if (behaviour >= 0) {
-                    const childNode = node.childNodes[behaviour];
-                    if (childNode instanceof Text && childNode.textContent === `${child}`) {
-                        return remove;
+            return new Promise((resolve) => {
+                if (presence === true || (typeof presence === 'number' && presence >= 0)) {
+                    behaviour.onCancelUnmount.shift()?.();
+                    // behaviour.onCancelMount.shift()?.();
+                    const childNode = (typeof child === 'string' || typeof child === 'number'
+                        ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
+                        : child);
+                    const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1;
+                    if (failIndex >= 0) {
+                        resolve(failIndex);
+                        return;
                     }
-                    node.insertBefore(document.createTextNode(`${child}`), node.childNodes[behaviour] || null);
-                }
-                else {
-                    const childNode = [...node.childNodes].find(node => node instanceof Text && node.textContent === `${child}`);
-                    if (!childNode) {
-                        return remove;
-                    }
-                    node.removeChild(childNode);
-                }
-                return remove;
-            }
-            if (behaviour === [...node.childNodes].indexOf(child)) {
-                return remove;
-            }
-            if (behaviour >= 0) {
-                node.insertBefore(child, node.childNodes[behaviour] || null);
-            }
-            else if (behaviour < 0) {
-                node.removeChild(child);
-            }
-            return remove;
-        case 'function':
-            let removeChild = false;
-            behaviour((value) => {
-                if (!behaviour) {
-                    return removeChild = false;
-                }
-                removeChild = addChild(node, child, value);
-                if (typeof removeChild === 'number') {
-                    return removeChild;
-                }
-                return value ?? false;
-            }, () => typeof removeChild === 'function' ? removeChild() : removeChild);
-            return remove;
-        case 'object':
-            let onMount = behaviour.onMount ?? caller;
-            let onUnmount = behaviour.onUnmount ?? caller;
-            let onCancelMount = behaviour.onCancelMount ?? noop;
-            let onCancelUnmount = behaviour.onCancelUnmount ?? noop;
-            let presence = behaviour.presence ?? true;
-            behaviour._onDelete || (behaviour._onDelete = []);
-            if (behaviour.onDelete) {
-                behaviour._onDelete.push(behaviour.onDelete);
-            }
-            child = typeof child === 'string' || typeof child === 'number' ? document.createTextNode(`${child}`) : child;
-            if (presence === true || (typeof presence === 'number' && presence >= 0)) {
-                if (behaviour.isUnmounting && behaviour.isUnmounting.length > 0) {
-                    onCancelUnmount();
-                    behaviour.isUnmounting[0] = false;
-                }
-                if (!Array.isArray(behaviour.isMounting)) {
-                    behaviour.isMounting = [];
-                }
-                behaviour.isMounting.unshift(true);
-                const cancelMount = onMount(() => {
-                    if (typeof behaviour !== 'object' || !Array.isArray(behaviour.isMounting) || !behaviour.isMounting.pop()) {
-                        return false;
-                    }
-                    if ((presence === true && !node.contains(child)) || (typeof presence === 'number' && node.children[presence] !== child)) {
+                    const cancelMount = behaviour.onMount(() => {
+                        const childNode = (typeof child === 'string' || typeof child === 'number'
+                            ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
+                            : child);
+                        if (behaviour.onCancelMount.length > 0 && util_1.observeCalled.hasBeenCalled(behaviour.onCancelMount[0])) {
+                            behaviour.onCancelMount.shift();
+                            const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1;
+                            resolve(failIndex);
+                            return failIndex;
+                        }
+                        behaviour.onCancelMount[0]?.();
+                        const addendo = childNode ?? document.createTextNode(`${child}`);
                         if (presence === true) {
-                            node.appendChild(child);
+                            if (!node.contains(addendo)) {
+                                node.appendChild(addendo);
+                            }
                         }
                         else {
-                            node.insertBefore(child, node.childNodes[presence] || null);
+                            if (node.childNodes[presence] !== addendo) {
+                                node.insertBefore(addendo, node.childNodes[presence]);
+                            }
                         }
-                    }
-                    return true;
-                });
-                if (typeof cancelMount === 'function') {
-                    behaviour._onDelete.push(cancelMount);
+                        const index = [...node.childNodes].indexOf(addendo);
+                        resolve(index);
+                        return index;
+                    });
+                    behaviour.onCancelMount.push((0, util_1.observeCalled)(cancelMount));
                 }
-                return remove;
-            }
-            else if (presence === false || presence === -1) {
-                if (behaviour.isMounting && behaviour.isMounting.length > 0) {
-                    onCancelMount();
-                    behaviour.isMounting[0] = false;
-                }
-                if (!Array.isArray(behaviour.isUnmounting)) {
-                    behaviour.isUnmounting = [];
-                }
-                behaviour.isUnmounting.unshift(true);
-                const cancelUnmount = onUnmount(() => {
-                    if (typeof behaviour !== 'object' || !Array.isArray(behaviour.isUnmounting) || !behaviour.isUnmounting.pop()) {
-                        return false;
+                else {
+                    // behaviour.onCancelUnmount.shift()?.();
+                    behaviour.onCancelMount.shift()?.();
+                    const childNode = (typeof child === 'string' || typeof child === 'number'
+                        ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
+                        : child);
+                    const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1;
+                    if (failIndex === -1) {
+                        resolve(failIndex);
+                        return;
                     }
-                    if (node.contains(child)) {
-                        node.removeChild(child);
-                    }
-                    return true;
-                });
-                if (typeof cancelUnmount === 'function') {
-                    behaviour._onDelete.push(cancelUnmount);
-                }
-                return remove;
-            }
-            else if (typeof presence === 'function') {
-                presence((value) => {
-                    if (!behaviour) {
-                        onMount = caller;
-                        onUnmount = caller;
-                        onCancelMount = noop;
-                        onCancelUnmount = noop;
-                        return presence = -1;
-                    }
-                    if (child === '') {
+                    const cancelUnmount = behaviour.onUnmount(() => {
+                        const childNode = (typeof child === 'string' || typeof child === 'number'
+                            ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
+                            : child);
+                        if (behaviour.onCancelUnmount.length > 0 && util_1.observeCalled.hasBeenCalled(behaviour.onCancelUnmount[0])) {
+                            behaviour.onCancelUnmount.shift();
+                            const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1;
+                            resolve(failIndex);
+                            return failIndex;
+                        }
+                        behaviour.onCancelUnmount[0]?.();
+                        if (childNode && node.contains(childNode)) {
+                            node.removeChild(childNode);
+                        }
+                        resolve(-1);
                         return -1;
-                    }
-                    switch (typeof value) {
-                        case 'undefined':
-                            break;
-                        case 'number':
-                        case 'boolean':
-                            if (typeof behaviour !== 'object')
-                                return false;
-                            behaviour.presence = value;
-                            addChild(node, child, behaviour);
-                            break;
-                        default:
-                            throw new Error(`Invalid argument type for "presence": ${typeof presence}`);
-                    }
-                    return [...node.childNodes].indexOf(child);
-                });
-                return remove;
+                    });
+                    const x = (0, util_1.observeCalled)(cancelUnmount);
+                    behaviour.onCancelUnmount.push(x);
+                    console.log(x.id);
+                }
+            });
+        case 'function':
+            const value = presence(value => {
+                return add(node, child, value, behaviour);
+            }) ?? undefined;
+            if (value === undefined) {
+                const childNode = (typeof child === 'string' || typeof child === 'number'
+                    ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
+                    : child);
+                const index = childNode ? [...node.childNodes].indexOf(childNode) : -1;
+                return Promise.resolve(index);
             }
-            return remove;
+            return add(node, child, value, behaviour);
         default:
-            throw new Error(`Invalid argument type for "addChild": ${typeof behaviour}`);
+            throw new Error(`Invalid argument type for "presence": ${typeof presence}`);
     }
 }
+/*
 
-},{}],2:[function(require,module,exports){
+add(node, child)                // number, current position of child in node children
+add(node, child, true)          // Promise<number>, puts it at the end if it isnt there
+add(node, child, false)         // Promise<number>
+add(node, child, -1)            // Promise<number>, removes it
+add(node, child, 0)             // Promise<number>, puts it at the beginning
+add(node, child, n)             // Promise<number>, puts it at position n
+add(node, child, presence => {
+  presence()                    // number, current position of child in node children
+  presence(true)                // Promise<number>
+  presence(false)               // Promise<number>
+  presence(-1)                  // Promise<number>
+  presence(0)                   // Promise<number>
+  presence(n)                   // Promise<number>
+  return false                  // or number, or void. If the last setting of presence is "false" or "-1", it clears memory
+})
+
+
+add(node, child, p => setInterval(p(!p()), 1000), {
+  onMount: (mount) => {
+    silk(child, { class: 'adding' })
+    ;(async () => {
+      await wait()
+      const index = mount()
+      if (index >= 0) {
+        // Success
+      } else {
+        // Failure
+      }
+    })();
+    return () => {
+      // this mount was cancelled, what to do
+    }
+  },
+  onUnmount: async (unmount) => {
+    silk(child, { class: 'removing' })
+    ;(async () => {
+      await wait(1000)
+      const index = unmount()
+      if (index >= 0) {
+        // Failure
+      } else {
+        // Success
+      }
+    })()
+    return () => {
+      // this unmount was cancelled, what to do
+    }
+  },
+})
+
+ */
+
+},{"./util":11}],2:[function(require,module,exports){
 "use strict";
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = addChildren;
-const addChild_1 = __importDefault(require("./addChild"));
-function addChildren(node, children) {
+exports.default = adds;
+const add_1 = __importDefault(require("./add"));
+function adds(node, children) {
     switch (typeof children) {
         case 'undefined':
             return [...node.childNodes];
         case 'object':
-            if (Array.isArray(children)) {
-                children.forEach(child => {
-                    if (typeof child === 'object' && 'child' in child) {
-                        (0, addChild_1.default)(node, child.child, child);
-                    }
-                    else if (child instanceof HTMLElement || child instanceof SVGElement || child instanceof Text) {
-                        node.appendChild(child);
-                    }
-                    else if (typeof child === 'string' || typeof child === 'number') {
-                        node.appendChild(document.createTextNode(`${child}`));
-                    }
-                    else {
-                        throw new Error(`Invalid child type: ${typeof child}`);
-                    }
-                });
-                return [...node.childNodes];
+            if (!Array.isArray(children)) {
+                throw new Error('Invalid children argument: object not array');
             }
-            throw new Error('Invalid children argument: object not array');
+            children.forEach(child => {
+                if (typeof child === 'object' && 'child' in child) {
+                    (0, add_1.default)(node, child.child, child.presence, child);
+                    return;
+                }
+                if (typeof child === 'string' || typeof child === 'number') {
+                    child = document.createTextNode(`${child}`);
+                }
+                if (child instanceof HTMLElement || child instanceof SVGElement || child instanceof Text) {
+                    (0, add_1.default)(node, child, true);
+                }
+                else {
+                    throw new Error(`Invalid child type: ${typeof child}`);
+                }
+            });
+            return [...node.childNodes];
         case 'function':
-            if (children.length === 1) {
-                children((value, behaviour) => {
-                    if (value === undefined) {
-                        return [...node.childNodes];
-                    }
-                    return (0, addChild_1.default)(node, value, behaviour);
-                });
-            }
-            else if (children.length === 2) {
-                const childrenDelMap = new Map();
-                children((value, behaviour) => {
-                    if (value === undefined) {
-                        return [...node.childNodes];
-                    }
-                    const del = (0, addChild_1.default)(node, value, behaviour);
-                    childrenDelMap.set(value, del);
-                    return del;
-                }, (child) => {
-                    if (!childrenDelMap.has(child)) {
-                        throw new Error(`Child not found: ${child}`);
-                    }
-                    const remove = childrenDelMap.get(child);
-                    if (typeof remove === 'function') {
-                        remove();
-                    }
-                    childrenDelMap.delete(child);
-                });
-            }
+            children((value, presence, behaviour) => {
+                if (value === undefined) {
+                    return [...node.childNodes];
+                }
+                return (0, add_1.default)(node, value, presence, behaviour);
+            });
             return [...node.childNodes];
         default:
-            throw new Error(`Invalid argument type for "addChildren": ${typeof children}`);
+            throw new Error(`Invalid argument type for "adds": ${typeof children}`);
     }
 }
 
-},{"./addChild":1}],3:[function(require,module,exports){
+},{"./add":1}],3:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = attr;
@@ -449,7 +390,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = silk;
-const addChildren_1 = __importDefault(require("./addChildren"));
+const adds_1 = __importDefault(require("./adds"));
 const props_1 = __importDefault(require("./props"));
 const text_1 = __importDefault(require("./text"));
 function silk(tag, props, ...children) {
@@ -473,12 +414,12 @@ function silk(tag, props, ...children) {
     }
     const childrenToAdd = typeof children[0] === 'function' ? children[0] : Array.isArray(children[0]) ? children[0] : children;
     if (children.length > 0) {
-        (0, addChildren_1.default)(node, childrenToAdd);
+        (0, adds_1.default)(node, childrenToAdd);
     }
     return node;
 }
 
-},{"./addChildren":2,"./props":6,"./text":10}],8:[function(require,module,exports){
+},{"./adds":2,"./props":6,"./text":10}],8:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = style;
@@ -553,6 +494,30 @@ function text(node, arg) {
             throw new Error(`Invalid argument type for "text": ${typeof arg}`);
     }
 }
+
+},{}],11:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.noop = exports.observeCalled = void 0;
+const observeCalled = (f) => {
+    if (!f)
+        return undefined;
+    const _ = function (...args) {
+        _.hasBeenCalled = true;
+        _.timesCalled++;
+        return f(...args);
+    };
+    _.hasBeenCalled = false;
+    _.timesCalled = 0;
+    _.id = Math.floor(Math.random() * 100);
+    return _;
+};
+exports.observeCalled = observeCalled;
+exports.observeCalled.hasBeenCalled = (f) => {
+    return typeof f === 'function' && f !== null && f.hasBeenCalled;
+};
+const noop = () => { };
+exports.noop = noop;
 
 },{}]},{},[7])(7)
 });

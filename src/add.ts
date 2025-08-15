@@ -8,11 +8,11 @@ export type AddAccessor<T> = (value?: T) => T | Promise<T>;
 export interface Behaviour {
   onMount: (mount: () => number) => (() => void);
   onUnmount: (unmount: () => number) => (() => void);
-  onCancelMount?: ObserveCalled;
-  onCancelUnmount?: ObserveCalled;
+  onCancelMount: (ObserveCalled<never, void> | undefined)[];
+  onCancelUnmount: (ObserveCalled<never, void> | undefined)[];
 }
 
-const defaultBehaviour: Behaviour = {
+const defaultBehaviour: Pick<Behaviour, 'onMount' | 'onUnmount'> = {
   onMount: mount => {mount(); return noop},
   onUnmount: unmount => {unmount(); return noop},
 }
@@ -23,7 +23,9 @@ export default function add(
   presence?: Argument<number | boolean, AddAccessor<number | boolean>>,
   behaviour?: Behaviour
 ): number | Promise<number> {
-  behaviour ||= {...defaultBehaviour}
+  behaviour ||= {...defaultBehaviour, onCancelUnmount: [], onCancelMount: []}
+  behaviour.onCancelUnmount ||= []
+  behaviour.onCancelMount ||= []
   switch (typeof presence) {
     case 'undefined':
       const childNode = typeof child === 'string' || typeof child === 'number'
@@ -34,8 +36,8 @@ export default function add(
     case 'number':
       return new Promise((resolve) => {
         if (presence === true || (typeof presence === 'number' && presence >= 0)) {
-          behaviour.onCancelUnmount?.()
-          behaviour.onCancelMount?.()
+          behaviour.onCancelUnmount.shift()?.();
+          // behaviour.onCancelMount.shift()?.();
           const childNode = (typeof child === 'string' || typeof child === 'number'
             ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
             : child)
@@ -44,16 +46,17 @@ export default function add(
             resolve(failIndex)
             return
           }
-          behaviour.onCancelMount = observeCalled(behaviour.onMount(() => {
+          const cancelMount = behaviour.onMount(() => {
             const childNode = (typeof child === 'string' || typeof child === 'number'
               ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
               : child)
-            if (observeCalled.hasBeenCalled(behaviour.onCancelMount)) {
+            if (behaviour.onCancelMount.length > 0 && observeCalled.hasBeenCalled(behaviour.onCancelMount[0])) {
+              behaviour.onCancelMount.shift()
               const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1
               resolve(failIndex)
               return failIndex
             }
-            behaviour.onCancelMount = undefined
+            behaviour.onCancelMount[0]?.()
             const addendo = childNode ?? document.createTextNode(`${child}`)
             if (presence === true) {
               if (!node.contains(addendo)) {
@@ -67,10 +70,11 @@ export default function add(
             const index = [...node.childNodes].indexOf(addendo)
             resolve(index)
             return index
-          }))
+          })
+          behaviour.onCancelMount.push(observeCalled(cancelMount))
         } else {
-          behaviour.onCancelMount?.()
-          behaviour.onCancelUnmount?.()
+          // behaviour.onCancelUnmount.shift()?.();
+          behaviour.onCancelMount.shift()?.();
           const childNode = (typeof child === 'string' || typeof child === 'number'
             ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
             : child)
@@ -79,22 +83,26 @@ export default function add(
             resolve(failIndex)
             return
           }
-          behaviour.onCancelUnmount = observeCalled(behaviour.onUnmount(() => {
+          const cancelUnmount = behaviour.onUnmount(() => {
             const childNode = (typeof child === 'string' || typeof child === 'number'
               ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
               : child)
-            if (observeCalled.hasBeenCalled(behaviour.onCancelUnmount)) {
+            if (behaviour.onCancelUnmount.length > 0 && observeCalled.hasBeenCalled(behaviour.onCancelUnmount[0])) {
+              behaviour.onCancelUnmount.shift()
               const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1
               resolve(failIndex)
               return failIndex
             }
-            behaviour.onCancelUnmount = undefined
+            behaviour.onCancelUnmount[0]?.()
             if (childNode && node.contains(childNode)) {
               node.removeChild(childNode)
             }
             resolve(-1)
             return -1
-          }))
+          })
+          const x = observeCalled(cancelUnmount)
+          behaviour.onCancelUnmount.push(x)
+          console.log((x as unknown as {id: number}).id)
         }
       })
     case 'function':
@@ -110,7 +118,7 @@ export default function add(
       }
       return add(node, child, value, behaviour)
     default:
-      throw new Error(`Invalid argument type for "add": ${typeof add}`);
+      throw new Error(`Invalid argument type for "presence": ${typeof presence}`);
   }
 }
 
