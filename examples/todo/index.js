@@ -134,7 +134,6 @@ addEventListener("load", () => {
           },
           {
             onMount: (mount) => {
-              // console.log('Mounting ', child.textContent)
               silk(child, { class: { collapse: true}});
               mount();
               setTimeout(() => {
@@ -142,14 +141,11 @@ addEventListener("load", () => {
               }, 0);
             },
             onUnmount: (unmount) => {
-              // console.log('Unmounting ', child.textContent)
               silk(child, { class: { collapse: true}});
               setTimeout(() => {
-                const index = unmount()
-                // console.log('Unmount index of ', child.textContent, ' is ', index)
+                unmount()
               }, 1000);
               return () => {
-                console.log('Cancelling unmount of ', child.textContent)
                 silk(child, { class: { collapse: false}});
               }
             },
