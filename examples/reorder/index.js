@@ -62,21 +62,24 @@ addEventListener("load", () => {
   }, silk(child)))
   const reorderApp = silk('div', null,
     silk('h1', null, 'Reorder app'),
-    silk('ul', { style: {userSelect: 'none' }}, (add, del) => {
+    silk('ul', { style: {userSelect: 'none' }}, add => {
       itemsSubj.subscribe((items, oldItems) => {
         items.forEach(item => {
-          add(getChild(item), {
-            presence: presence => itemsSubj.subscribe(items => {
-              presence(items.indexOf(item))
-            })
-          })
+          add(
+            getChild(item),
+            presence => {
+              itemsSubj.subscribe(items => {
+                presence(items.indexOf(item))
+              })
+            }
+          )
         })
-        oldItems?.forEach(oldItem => {
-          if (items.includes(oldItem)) {
-            return
-          }
-          del(getChild(oldItem))
-        })
+        // oldItems?.forEach(oldItem => {
+        //   if (items.includes(oldItem)) {
+        //     return
+        //   }
+        //   add(getChild(oldItem), false)
+        // })
       })
     }),
   );

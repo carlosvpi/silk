@@ -4,12 +4,19 @@ import { Argument } from "../types";
 import { noop, observeCalled, ObserveCalled } from "./util";
 
 export type Child = ChildNode | string | number
-export type AddAccessor<T> = (value?: T) => T | Promise<T>;
+export type AddAccessor<T> = (value?: T) => T | Promise<PresenceResolution>;
+export interface PresenceResolution {
+  presence: number;
+  response?: string;
+}
+
 export interface Behaviour {
-  onMount: (mount: () => number) => (() => void);
-  onUnmount: (unmount: () => number) => (() => void);
-  onCancelMount: (ObserveCalled<never, void> | undefined)[];
-  onCancelUnmount: (ObserveCalled<never, void> | undefined)[];
+  onMount: (mount: () => PresenceResolution, presence: number) => (() => void);
+  onUnmount: (unmount: () => PresenceResolution, presence: number) => (() => void);
+  cancelMount?: () => void;
+  cancelUnmount?: () => void;
+  currentIndex?: number;
+  lastIndexRequest?: number;
 }
 
 const defaultBehaviour: Pick<Behaviour, 'onMount' | 'onUnmount'> = {
@@ -22,99 +29,91 @@ export default function add(
   child: Child,
   presence?: Argument<number | boolean, AddAccessor<number | boolean>>,
   behaviour?: Behaviour
-): number | Promise<number> {
-  behaviour ||= {...defaultBehaviour, onCancelUnmount: [], onCancelMount: []}
-  behaviour.onCancelUnmount ||= []
-  behaviour.onCancelMount ||= []
+): number | Promise<PresenceResolution> {
+  behaviour ||= {...defaultBehaviour}
+  const childNode = typeof child === 'string' || typeof child === 'number'
+    ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
+    : child
   switch (typeof presence) {
     case 'undefined':
-      const childNode = typeof child === 'string' || typeof child === 'number'
-        ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
-        : child
       return childNode ? [...node.childNodes].indexOf(childNode) : -1
     case 'boolean':
     case 'number':
-      return new Promise((resolve) => {
-        if (presence === true || (typeof presence === 'number' && presence >= 0)) {
-          behaviour.onCancelUnmount.shift()?.();
-          // behaviour.onCancelMount.shift()?.();
+      if (presence === false) {
+        presence = -1
+      } else if (presence === true) {
+        presence = node.childNodes.length
+      }
+      if (behaviour.currentIndex === undefined) {
+        behaviour.lastIndexRequest =
+          behaviour.currentIndex =
+          childNode ? [...node.childNodes].indexOf(childNode) : -1
+      }
+      if (presence === behaviour.lastIndexRequest) {
+        return Promise.resolve({ presence, response: 'SAME REQUEST' })
+      }
+      const cancel = behaviour!.lastIndexRequest! >= 0 ? behaviour.cancelMount : behaviour.cancelUnmount
+      cancel?.()
+      behaviour.lastIndexRequest = presence
+      if (presence === behaviour.currentIndex) {
+        return Promise.resolve({ presence, response: 'NO CHANGE' })
+      }
+      return new Promise(resolve => {
+        let isImmediatePass = false
+        let cancel: (() => void) | ObserveCalled | undefined
+        cancel = (presence as number >= 0 ? behaviour.onMount: behaviour.onUnmount)(() => {
+          isImmediatePass = true
+          if (observeCalled.hasBeenCalled(cancel as ObserveCalled)) {
+            resolve({ presence: presence as number, response: 'CANCELLED' })
+            return { presence: presence as number, response: 'CANCELLED' }
+          }
+          behaviour.currentIndex = presence as number
+
           const childNode = (typeof child === 'string' || typeof child === 'number'
             ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
             : child)
-          const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1
-          if (failIndex >= 0) {
-            resolve(failIndex)
-            return
-          }
-          const cancelMount = behaviour.onMount(() => {
-            const childNode = (typeof child === 'string' || typeof child === 'number'
-              ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
-              : child)
-            if (behaviour.onCancelMount.length > 0 && observeCalled.hasBeenCalled(behaviour.onCancelMount[0])) {
-              behaviour.onCancelMount.shift()
-              const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1
-              resolve(failIndex)
-              return failIndex
-            }
-            behaviour.onCancelMount[0]?.()
+          if (presence as number >= 0) {
             const addendo = childNode ?? document.createTextNode(`${child}`)
-            if (presence === true) {
-              if (!node.contains(addendo)) {
-                node.appendChild(addendo)
-              }
-            } else {
-              if (node.childNodes[presence as number] !== addendo) {
-                node.insertBefore(addendo, node.childNodes[presence as number])
-              }
+            if (node.childNodes[presence as number] !== addendo) {
+              node.insertBefore(addendo, node.childNodes[presence as number])
             }
-            const index = [...node.childNodes].indexOf(addendo)
-            resolve(index)
-            return index
-          })
-          behaviour.onCancelMount.push(observeCalled(cancelMount))
-        } else {
-          // behaviour.onCancelUnmount.shift()?.();
-          behaviour.onCancelMount.shift()?.();
-          const childNode = (typeof child === 'string' || typeof child === 'number'
-            ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
-            : child)
-          const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1
-          if (failIndex === -1) {
-            resolve(failIndex)
-            return
+          } else if (childNode && node.contains(childNode)) {
+            node.removeChild(childNode)
           }
-          const cancelUnmount = behaviour.onUnmount(() => {
-            const childNode = (typeof child === 'string' || typeof child === 'number'
-              ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
-              : child)
-            if (behaviour.onCancelUnmount.length > 0 && observeCalled.hasBeenCalled(behaviour.onCancelUnmount[0])) {
-              behaviour.onCancelUnmount.shift()
-              const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1
-              resolve(failIndex)
-              return failIndex
-            }
-            behaviour.onCancelUnmount[0]?.()
-            if (childNode && node.contains(childNode)) {
-              node.removeChild(childNode)
-            }
-            resolve(-1)
-            return -1
-          })
-          const x = observeCalled(cancelUnmount)
-          behaviour.onCancelUnmount.push(x)
-          console.log((x as unknown as {id: number}).id)
+          resolve({ presence: presence as number, response: 'OK' })
+          if (presence as number >= 0 ) {
+            behaviour.cancelMount = undefined
+          } else {
+            behaviour.cancelUnmount = undefined
+          }
+          return { presence: presence as number, response: 'OK' }
+        }, presence as number)
+        if (isImmediatePass) {
+          cancel = undefined
+        }
+        if (presence as number >= 0) {
+          cancel = behaviour.cancelMount = observeCalled(cancel)
+        } else {
+          cancel = behaviour.cancelUnmount = observeCalled(cancel)
         }
       })
     case 'function':
+      const specialBehaviour = {
+        ...behaviour,
+        currentIndex: -1,
+        lastIndexRequest: -1,
+        cancelMount: undefined,
+        cancelUnmount: undefined
+      }
       const value = presence(value => {
-        return add(node, child, value, behaviour)
+        return add(node, child, value, specialBehaviour)
       }) ?? undefined
       if (value === undefined) {
         const childNode = (typeof child === 'string' || typeof child === 'number'
           ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
           : child)
         const index = childNode ? [...node.childNodes].indexOf(childNode) : -1
-        return Promise.resolve(index)
+        return Promise.resolve({ presence: index })
       }
       return add(node, child, value, behaviour)
     default:

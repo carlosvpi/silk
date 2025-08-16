@@ -39,6 +39,9 @@ addEventListener("load", () => {
   }
   const newTodoInput = { current: null}
   const addTodoFromInput = () => {
+    if (newTodoInput.current.value === '') {
+      return
+    }
     addTodo(newTodoInput.current.value);
     newTodoInput.current.value = '';
   }

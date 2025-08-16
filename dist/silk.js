@@ -9,100 +9,93 @@ const defaultBehaviour = {
     onUnmount: unmount => { unmount(); return util_1.noop; },
 };
 function add(node, child, presence, behaviour) {
-    behaviour || (behaviour = { ...defaultBehaviour, onCancelUnmount: [], onCancelMount: [] });
-    behaviour.onCancelUnmount || (behaviour.onCancelUnmount = []);
-    behaviour.onCancelMount || (behaviour.onCancelMount = []);
+    behaviour || (behaviour = { ...defaultBehaviour });
+    const childNode = typeof child === 'string' || typeof child === 'number'
+        ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
+        : child;
     switch (typeof presence) {
         case 'undefined':
-            const childNode = typeof child === 'string' || typeof child === 'number'
-                ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
-                : child;
             return childNode ? [...node.childNodes].indexOf(childNode) : -1;
         case 'boolean':
         case 'number':
-            return new Promise((resolve) => {
-                if (presence === true || (typeof presence === 'number' && presence >= 0)) {
-                    behaviour.onCancelUnmount.shift()?.();
-                    // behaviour.onCancelMount.shift()?.();
+            if (presence === false) {
+                presence = -1;
+            }
+            else if (presence === true) {
+                presence = node.childNodes.length;
+            }
+            if (behaviour.currentIndex === undefined) {
+                behaviour.lastIndexRequest =
+                    behaviour.currentIndex =
+                        childNode ? [...node.childNodes].indexOf(childNode) : -1;
+            }
+            if (presence === behaviour.lastIndexRequest) {
+                return Promise.resolve({ presence, response: 'SAME REQUEST' });
+            }
+            const cancel = behaviour.lastIndexRequest >= 0 ? behaviour.cancelMount : behaviour.cancelUnmount;
+            cancel?.();
+            behaviour.lastIndexRequest = presence;
+            if (presence === behaviour.currentIndex) {
+                return Promise.resolve({ presence, response: 'NO CHANGE' });
+            }
+            return new Promise(resolve => {
+                let isImmediatePass = false;
+                let cancel;
+                cancel = (presence >= 0 ? behaviour.onMount : behaviour.onUnmount)(() => {
+                    isImmediatePass = true;
+                    if (util_1.observeCalled.hasBeenCalled(cancel)) {
+                        resolve({ presence: presence, response: 'CANCELLED' });
+                        return { presence: presence, response: 'CANCELLED' };
+                    }
+                    behaviour.currentIndex = presence;
                     const childNode = (typeof child === 'string' || typeof child === 'number'
                         ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
                         : child);
-                    const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1;
-                    if (failIndex >= 0) {
-                        resolve(failIndex);
-                        return;
-                    }
-                    const cancelMount = behaviour.onMount(() => {
-                        const childNode = (typeof child === 'string' || typeof child === 'number'
-                            ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
-                            : child);
-                        if (behaviour.onCancelMount.length > 0 && util_1.observeCalled.hasBeenCalled(behaviour.onCancelMount[0])) {
-                            behaviour.onCancelMount.shift();
-                            const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1;
-                            resolve(failIndex);
-                            return failIndex;
-                        }
-                        behaviour.onCancelMount[0]?.();
+                    if (presence >= 0) {
                         const addendo = childNode ?? document.createTextNode(`${child}`);
-                        if (presence === true) {
-                            if (!node.contains(addendo)) {
-                                node.appendChild(addendo);
-                            }
+                        if (node.childNodes[presence] !== addendo) {
+                            node.insertBefore(addendo, node.childNodes[presence]);
                         }
-                        else {
-                            if (node.childNodes[presence] !== addendo) {
-                                node.insertBefore(addendo, node.childNodes[presence]);
-                            }
-                        }
-                        const index = [...node.childNodes].indexOf(addendo);
-                        resolve(index);
-                        return index;
-                    });
-                    behaviour.onCancelMount.push((0, util_1.observeCalled)(cancelMount));
+                    }
+                    else if (childNode && node.contains(childNode)) {
+                        node.removeChild(childNode);
+                    }
+                    resolve({ presence: presence, response: 'OK' });
+                    if (presence >= 0) {
+                        behaviour.cancelMount = undefined;
+                    }
+                    else {
+                        behaviour.cancelUnmount = undefined;
+                    }
+                    return { presence: presence, response: 'OK' };
+                }, presence);
+                if (isImmediatePass) {
+                    cancel = undefined;
+                }
+                if (presence >= 0) {
+                    cancel = behaviour.cancelMount = (0, util_1.observeCalled)(cancel);
                 }
                 else {
-                    // behaviour.onCancelUnmount.shift()?.();
-                    behaviour.onCancelMount.shift()?.();
-                    const childNode = (typeof child === 'string' || typeof child === 'number'
-                        ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
-                        : child);
-                    const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1;
-                    if (failIndex === -1) {
-                        resolve(failIndex);
-                        return;
-                    }
-                    const cancelUnmount = behaviour.onUnmount(() => {
-                        const childNode = (typeof child === 'string' || typeof child === 'number'
-                            ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
-                            : child);
-                        if (behaviour.onCancelUnmount.length > 0 && util_1.observeCalled.hasBeenCalled(behaviour.onCancelUnmount[0])) {
-                            behaviour.onCancelUnmount.shift();
-                            const failIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1;
-                            resolve(failIndex);
-                            return failIndex;
-                        }
-                        behaviour.onCancelUnmount[0]?.();
-                        if (childNode && node.contains(childNode)) {
-                            node.removeChild(childNode);
-                        }
-                        resolve(-1);
-                        return -1;
-                    });
-                    const x = (0, util_1.observeCalled)(cancelUnmount);
-                    behaviour.onCancelUnmount.push(x);
-                    console.log(x.id);
+                    cancel = behaviour.cancelUnmount = (0, util_1.observeCalled)(cancel);
                 }
             });
         case 'function':
+            const specialBehaviour = {
+                ...behaviour,
+                currentIndex: -1,
+                lastIndexRequest: -1,
+                cancelMount: undefined,
+                cancelUnmount: undefined
+            };
             const value = presence(value => {
-                return add(node, child, value, behaviour);
+                return add(node, child, value, specialBehaviour);
             }) ?? undefined;
             if (value === undefined) {
                 const childNode = (typeof child === 'string' || typeof child === 'number'
                     ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
                     : child);
                 const index = childNode ? [...node.childNodes].indexOf(childNode) : -1;
-                return Promise.resolve(index);
+                return Promise.resolve({ presence: index });
             }
             return add(node, child, value, behaviour);
         default:
