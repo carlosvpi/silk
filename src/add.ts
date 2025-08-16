@@ -1,5 +1,3 @@
-// This file is an alternative implementation for addChild.ts
-
 import { Argument } from "../types";
 import { noop, observeCalled, ObserveCalled } from "./util";
 

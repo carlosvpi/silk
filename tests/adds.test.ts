@@ -1,6 +1,6 @@
-import addChildren from '../src/addChildren';
+import addChildren from '../src/adds';
 
-describe('children', () => {
+describe('adds', () => {
   let parent: HTMLElement;
   let childA: HTMLElement;
   let childB: HTMLElement;
