@@ -22,16 +22,16 @@ const defaultBehaviour: Pick<Behaviour, 'onMount' | 'onUnmount'> = {
   onUnmount: unmount => {unmount(); return noop},
 }
 
-export default function add(
+export default function child(
   node: HTMLElement | SVGElement,
-  child: Child,
+  arg: Child,
   presence?: Argument<number | boolean, AddAccessor<number | boolean>>,
   behaviour?: Behaviour
 ): number | Promise<PresenceResolution> {
   behaviour ||= {...defaultBehaviour}
-  const childNode = typeof child === 'string' || typeof child === 'number'
-    ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
-    : child
+  const childNode = typeof arg === 'string' || typeof arg === 'number'
+    ? [...node.childNodes].find(childNode => childNode.textContent === `${arg}`)
+    : arg
   switch (typeof presence) {
     case 'undefined':
       return childNode ? [...node.childNodes].indexOf(childNode) : -1
@@ -67,11 +67,11 @@ export default function add(
           }
           behaviour.currentIndex = presence as number
 
-          const childNode = (typeof child === 'string' || typeof child === 'number'
-            ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
-            : child)
+          const childNode = (typeof arg === 'string' || typeof arg === 'number'
+            ? [...node.childNodes].find(childNode => childNode.textContent === `${arg}`)
+            : arg)
           if (presence as number >= 0) {
-            const addendo = childNode ?? document.createTextNode(`${child}`)
+            const addendo = childNode ?? document.createTextNode(`${arg}`)
             if (node.childNodes[presence as number] !== addendo) {
               node.insertBefore(addendo, node.childNodes[presence as number])
             }
@@ -104,73 +104,17 @@ export default function add(
         cancelUnmount: undefined
       }
       const value = presence(value => {
-        return add(node, child, value, specialBehaviour)
+        return child(node, arg, value, specialBehaviour)
       }) ?? undefined
       if (value === undefined) {
-        const childNode = (typeof child === 'string' || typeof child === 'number'
-          ? [...node.childNodes].find(childNode => childNode.textContent === `${child}`)
-          : child)
+        const childNode = (typeof arg === 'string' || typeof arg === 'number'
+          ? [...node.childNodes].find(childNode => childNode.textContent === `${arg}`)
+          : arg)
         const index = childNode ? [...node.childNodes].indexOf(childNode) : -1
         return Promise.resolve({ presence: index })
       }
-      return add(node, child, value, behaviour)
+      return child(node, arg, value, behaviour)
     default:
       throw new Error(`Invalid argument type for "presence": ${typeof presence}`);
   }
 }
-
-
-
-/*
-
-add(node, child)                // number, current position of child in node children
-add(node, child, true)          // Promise<number>, puts it at the end if it isnt there
-add(node, child, false)         // Promise<number>
-add(node, child, -1)            // Promise<number>, removes it
-add(node, child, 0)             // Promise<number>, puts it at the beginning
-add(node, child, n)             // Promise<number>, puts it at position n
-add(node, child, presence => {
-  presence()                    // number, current position of child in node children
-  presence(true)                // Promise<number>
-  presence(false)               // Promise<number>
-  presence(-1)                  // Promise<number>
-  presence(0)                   // Promise<number>
-  presence(n)                   // Promise<number>
-  return false                  // or number, or void. If the last setting of presence is "false" or "-1", it clears memory
-})
-
-
-add(node, child, p => setInterval(p(!p()), 1000), {
-  onMount: (mount) => {
-    silk(child, { class: 'adding' })
-    ;(async () => {
-      await wait()
-      const index = mount()
-      if (index >= 0) {
-        // Success
-      } else {
-        // Failure
-      }
-    })();
-    return () => {
-      // this mount was cancelled, what to do
-    }
-  },
-  onUnmount: async (unmount) => {
-    silk(child, { class: 'removing' })
-    ;(async () => {
-      await wait(1000)
-      const index = unmount()
-      if (index >= 0) {
-        // Failure
-      } else {
-        // Success
-      }
-    })()
-    return () => {
-      // this unmount was cancelled, what to do
-    }
-  },
-})
-
- */
