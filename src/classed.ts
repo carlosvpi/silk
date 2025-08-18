@@ -1,10 +1,13 @@
-import type { Argument } from '../types';
+import type { Accessor, Argument } from '../types';
 
-export default function classed(
+function classed(node: HTMLElement | SVGElement, className: string): boolean;
+function classed(node: HTMLElement | SVGElement, className: string, arg: Argument<boolean>): Promise<boolean>;
+
+function classed(
   node: HTMLElement | SVGElement,
   className: string,
   arg?: Argument<boolean>
-): boolean {
+): boolean | Promise<boolean> {
   switch (typeof arg) {
     case 'undefined':
       return node.classList.contains(className);
@@ -14,19 +17,21 @@ export default function classed(
       } else {
         node.classList.remove(className);
       }
-      return arg;
+      return Promise.resolve(arg);
     case 'function':
-      const result = arg(value => classed(node, className, value));
-      if (result === true) {
-        node.classList.add(className);
-        return true;
-      } else if (result === false) {
-        node.classList.remove(className);
-        return false;
-      } else {
-        return node.classList.contains(className);
-      }
+      return new Promise(resolve => {
+        arg(((value?: boolean) => {
+          if (value === undefined) return classed(node, className)
+          const promise = classed(node, className, value)
+          return promise.then(promiseValue => {
+            resolve(promiseValue)
+            return promiseValue
+          })
+        }) as Accessor<boolean>);
+      })
     default:
       throw new Error(`Invalid argument type for "classed": ${typeof arg}`);
   }
 }
+
+export default classed;

@@ -1,61 +1,112 @@
-import type { Argument, ArgumentRecord, EventHandler, Ref } from '../types';
-import attr from './attr';
-import classes from './classes';
-import styles from './styles';
+import type { Argument, RecordArgument, EventHandler, Ref } from '../types';
+import attr, { AttrType } from './attr';
+import classes, { ClassesArg } from './classes';
+import styles, { StylesArg } from './styles';
+
+interface PropsAccessor {
+  (): Record<string, string>;
+  (key: string): AttrType | ClassesArg | StylesArg;
+  (args: Props): Promise<Record<string, string>>;
+  (key: string, value: AttrType | ClassesArg | StylesArg): Promise<Record<string, string>>;
+}
 
 export type Props = Argument<
-  Record<string, Argument<string | null | boolean>> |
+  Record<string, Argument<AttrType>> |
   Record<string, EventHandler> |
   { ref: Ref } |
-  { class: ArgumentRecord<boolean> } |
-  { style: ArgumentRecord<string | number> }
->
+  { class: ClassesArg } |
+  { style: StylesArg }
+, PropsAccessor>
 
-export default function props(
+function props(node: HTMLElement | SVGElement): Record<string, string>;
+function props(node: HTMLElement | SVGElement, arg: string): string | string[] | CSSStyleDeclaration | null;
+function props(node: HTMLElement | SVGElement, arg: Props): Promise<Record<string, string>>;
+
+function props(
   node: HTMLElement | SVGElement,
-  arg?: Props
-): Record<string, string> {
+  arg?: Props | string
+): Record<string, string> | Promise<Record<string, string>> | string | string[] | CSSStyleDeclaration | null {
   switch (typeof arg) {
     case 'undefined':
-      break;
-    case 'object':
-      for (const [key, value] of Object.entries(arg)) {
-        switch (key) {
-          case 'class':
-            classes(node, value as ArgumentRecord<boolean>);
-            break;
-          case 'style':
-            styles(node, value as ArgumentRecord<string | number>);
-            break;
-          case 'ref':
-            (value as Ref).current = node
-            break;
-          default:
-            if (key.startsWith('on')) {
-              if (key.endsWith('Capture')) {
-                node.addEventListener(key.slice(2, -7).toLowerCase(), value as EventHandler, { capture: true })
-              } else {
-                node.addEventListener(key.slice(2).toLowerCase(), value as EventHandler)
-              }
-            } else {
-              attr(node, key, value as Argument<string | null | boolean>);
-            }
-        }
+      console.log(node.attributes)
+      return Array.from(node.getAttributeNames()).reduce((acc: Record<string, string>, attribute) => {
+        acc[attribute] = node.getAttribute(attribute) ?? '';
+        return acc;
+      }, {} as Record<string, string>)
+    case 'string':
+      switch (arg) {
+        case 'class':
+          return classes(node)
+        case 'style':
+          return styles(node)
+        default:
+          return node.getAttribute(arg)
       }
-      break;
+    case 'object':
+      if (arg === null) {
+        throw new Error('Invalid "null" as paramter of "props"')
+      }
+      return new Promise(async resolve => {
+        await Promise.all(Object.entries(arg).map(([key, value]) => {
+          switch (key) {
+            case 'class':
+              return classes(node, value as ClassesArg);
+            case 'style':
+              return styles(node, value as StylesArg);
+            case 'ref':
+              return Promise.resolve((value as Ref).current = node)
+            default:
+              if (key.startsWith('on')) {
+                if (key.endsWith('Capture')) {
+                  node.addEventListener(key.slice(2, -7).toLowerCase(), value as EventHandler, { capture: true })
+                } else {
+                  node.addEventListener(key.slice(2).toLowerCase(), value as EventHandler)
+                }
+                return Promise.resolve({[key]: value})
+              }
+              return attr(node, key, value as Argument<AttrType>);
+          }
+        }))
+        resolve(Array.from(node.getAttributeNames()).reduce((acc: Record<string, string>, attribute) => {
+          acc[attribute] = node.getAttribute(attribute) ?? '';
+          return acc;
+        }, {} as Record<string, string>))
+      })
     case 'function':
-      arg((value) => {
-        if (value === undefined) {
-          return props(node);
-        }
-        return props(node, value as Props);
-      });
-      break;
+      return new Promise(resolve => {
+        arg(((key?: string | Props, value?: AttrType | ClassesArg | StylesArg) => {
+          if (key === undefined) {
+            return Array.from(node.getAttributeNames()).reduce((acc: Record<string, string>, attribute) => {
+              acc[attribute] = node.getAttribute(attribute) ?? '';
+              return acc;
+            }, {} as Record<string, string>)
+          }
+          if (typeof key !== 'string') {
+            const promise = props(node, key)
+            return promise.then(promiseValue => {
+              resolve(Array.from(node.getAttributeNames()).reduce((acc: Record<string, string>, attribute) => {
+                acc[attribute] = node.getAttribute(attribute) ?? '';
+                return acc;
+              }, {} as Record<string, string>))
+              return promiseValue
+            })
+          }
+          if (value === undefined) {
+            return props(node, key)
+          }
+          const promise = props(node, { [key]: value } as Props)
+            return promise.then(promiseValue => {
+              resolve(Array.from(node.getAttributeNames()).reduce((acc: Record<string, string>, attribute) => {
+                acc[attribute] = node.getAttribute(attribute) ?? '';
+                return acc;
+              }, {} as Record<string, string>))
+              return promiseValue
+            })
+        }) as PropsAccessor);
+      })
     default:
       throw new Error(`Invalid argument type for "classes": ${typeof arg}`);
   }
-  return Array.from(node.attributes).reduce((acc: Record<string, string>, attribute) => {
-    acc[attribute.name] = node.getAttribute(attribute.name) ?? '';
-    return acc;
-  }, {} as Record<string, string>)
 }
+
+export default props

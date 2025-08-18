@@ -1,4 +1,5 @@
 import classed from '../src/classed';
+import { getAction } from './util';
 
 describe('classed', () => {
   it('returns true if the class is present', () => {
@@ -25,24 +26,21 @@ describe('classed', () => {
     expect(div.classList.contains('qux')).toBe(false);
   });
 
-  it('sets class using a function returning true', () => {
+  it('sets class using a function', async () => {
+    const action = getAction()
     const div = document.createElement('div');
-    classed(div, 'alpha', () => true);
+    const promise = classed(div, 'alpha', async (isClassed) => {
+      expect(isClassed()).toBe(false)
+      await action
+      const promise = isClassed(true)
+      expect(isClassed()).toBe(true)
+      await promise
+      expect(isClassed()).toBe(true)
+    });
+    expect(div.classList.contains('alpha')).toBe(false);
+    action.resolve()
+    expect(await promise).toBe(true)
     expect(div.classList.contains('alpha')).toBe(true);
-  });
-
-  it('sets class using a function returning false', () => {
-    const div = document.createElement('div');
-    div.classList.add('beta');
-    classed(div, 'beta', () => false);
-    expect(div.classList.contains('beta')).toBe(false);
-  });
-
-  it('returns class presence if function returns neither true nor false', () => {
-    const div = document.createElement('div');
-    div.classList.add('gamma');
-    expect(classed(div, 'gamma', () => undefined as any)).toBe(true);
-    expect(classed(div, 'gamma', () => null as any)).toBe(true);
   });
 
   it('throws an error for invalid argument type', () => {

@@ -1,4 +1,5 @@
 import attr from '../src/attr';
+import { getAction } from './util';
 
 describe('attr', () => {
   it('gets the attribute value when called with only a node and attrName', () => {
@@ -28,49 +29,29 @@ describe('attr', () => {
     expect(div.hasAttribute('hidden')).toBe(false);
   });
 
-  it('sets attribute using a function returning a string', () => {
+  it('sets attribute using a function', async () => {
+    const action1 = getAction()
+    const action2 = getAction()
     const div = document.createElement('div');
-    attr(div, 'data-x', () => 'abc');
-    expect(div.getAttribute('data-x')).toBe('abc');
-  });
-
-  it('sets attribute using a function returning true', () => {
-    const div = document.createElement('div');
-    attr(div, 'checked', () => true);
-    expect(div.hasAttribute('checked')).toBe(true);
-  });
-
-  it('gets attribute inside a function', () => {
-    const div = document.createElement('div');
-    attr(div, 'checked', checked => {
-      checked(true);
-      expect(checked()).toBeTruthy();
-      return false
+    const promise = attr(div, 'data-x', async accessor => {
+      expect(accessor()).toBe(null)
+      expect(await accessor('abc')).toBe('abc')
+      expect(accessor()).toBe('abc')
+      await action1
+      expect(await accessor(null)).toBe(null)
+      expect(accessor()).toBe(null)
+      action2.resolve()
     });
-    expect(div.hasAttribute('checked')).toBe(false);
-  });
-
-  it('removes attribute using a function returning false', () => {
-    const div = document.createElement('div');
-    div.setAttribute('checked', '');
-    attr(div, 'checked', () => false);
-    expect(div.hasAttribute('checked')).toBe(false);
-  });
-
-  it('removes attribute using a function returning null', () => {
-    const div = document.createElement('div');
-    div.setAttribute('checked', '');
-    attr(div, 'checked', () => null);
-    expect(div.hasAttribute('checked')).toBe(false);
+    expect(div.getAttribute('data-x')).toBe('abc');
+    action1.resolve()
+    expect(await promise).toBe('abc') // the first value set
+    expect(div.getAttribute('data-x')).toBe('abc');
+    await action2
+    expect(div.getAttribute('data-x')).toBe(null);
   });
 
   it('throws an error for invalid object argument', () => {
     const div = document.createElement('div');
     expect(() => attr(div, 'foo', {} as any)).toThrow(Error);
-  });
-
-  it('throws an error for invalid argument type', () => {
-    const div = document.createElement('div');
-    expect(() => attr(div, 'foo', 123 as any)).toThrow(Error);
   });
 });

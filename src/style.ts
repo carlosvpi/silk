@@ -1,10 +1,13 @@
-import type { Argument } from '../types';
+import type { Accessor, Argument } from '../types';
 
-export default function style(
+function style(node: HTMLElement | SVGElement, styleName: keyof CSSStyleDeclaration): string;
+function style(node: HTMLElement | SVGElement, styleName: keyof CSSStyleDeclaration, arg: Argument<string | number>): Promise<string>;
+
+function style(
   node: HTMLElement | SVGElement,
   styleName: keyof CSSStyleDeclaration,
   arg?: Argument<string | number>
-): string | number {
+): string | Promise<string> {
   if (styleName === 'length' || styleName === 'parentRule') {
     throw new Error(`Invalid style name: ${styleName}`);
   }
@@ -12,12 +15,22 @@ export default function style(
     case 'undefined':
       return (node.style as any)[styleName];
     case 'string':
-      return ((node.style as any)[styleName] = arg);
     case 'number':
-      return ((node.style as any)[styleName] = `${arg}`);
+      return Promise.resolve(((node.style as any)[styleName] = `${arg}`));
     case 'function':
-      return style(node, styleName, arg(value => style(node, styleName, value)) ?? undefined);
+      return new Promise(resolve => {
+        arg(((value?: string | number) => {
+          if (value === undefined) return style(node, styleName)
+          const promise = style(node, styleName, value)
+          return promise.then(promiseValue => {
+            resolve(promiseValue)
+            return promiseValue
+          })
+        }) as Accessor<string | number>);
+      })
     default:
       throw new Error(`Invalid argument type for "style": ${typeof arg}`);
   }
 }
+
+export default style

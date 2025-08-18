@@ -1,4 +1,5 @@
 import classes from '../src/classes';
+import { getAction } from './util';
 
 describe('classes', () => {
   it('returns className when called with only a node', () => {
@@ -9,15 +10,9 @@ describe('classes', () => {
 
   it('sets className when called with a string', () => {
     const div = document.createElement('div');
-    classes(div, 'baz qux');
-    expect(div.className).toBe('baz qux');
-  });
-
-  it('adds classes when called with an array', () => {
-    const div = document.createElement('div');
-    classes(div, ['alpha', 'beta']);
-    expect(div.classList.contains('alpha')).toBe(true);
-    expect(div.classList.contains('beta')).toBe(true);
+    classes(div, ['baz', 'qux']);
+    expect(div.classList.contains('baz')).toBe(true);
+    expect(div.classList.contains('qux')).toBe(true);
   });
 
   it('adds/removes classes when called with an object', () => {
@@ -28,27 +23,38 @@ describe('classes', () => {
     expect(div.classList.contains('baz')).toBe(true);
   });
 
+  it('adds/removes classes when called with an object of functions', async () => {
+    const action1 = getAction();
+    const action2 = getAction();
+    const div = document.createElement('div');
+    classes(div, { foo: true, bar: async bar => {
+      expect(bar()).toBe(false)
+      bar(false)
+      await action1
+      bar(true)
+      expect(bar()).toBe(true)
+      action2.resolve()
+    }, baz: true });
+    expect(div.classList.contains('foo')).toBe(true);
+    expect(div.classList.contains('baz')).toBe(true);
+    expect(div.classList.contains('bar')).toBe(false);
+    action1.resolve()
+    await action2
+    expect(div.classList.contains('bar')).toBe(true);
+  });
+
   it('updates classes using a function callback', () => {
     const div = document.createElement('div');
     div.className = 'start';
-    classes(div, (set) => {
-      set('foo', true);
-      set('bar', false);
-      expect(set('foo')).toBe(true)
+    classes(div, async (accessor) => {
+      expect(await accessor('foo', true)).toBe(true);
+      expect(await accessor('bar', false)).toBe(false);
+      expect(accessor('foo')).toBe(true)
+      expect(accessor()).toEqual(['start', 'foo'])
     });
     expect(div.classList.contains('foo')).toBe(true);
     expect(div.classList.contains('bar')).toBe(false);
     expect(div.classList.contains('start')).toBe(true);
-  });
-
-  it('returns className when function callback is called with undefined key', () => {
-    const div = document.createElement('div');
-    div.className = 'x y';
-    let classNameResult = '';
-    classes(div, (set) => {
-      classNameResult = set();
-    });
-    expect(classNameResult).toBe(div.className);
   });
 
   it('throws an error for invalid argument type', () => {

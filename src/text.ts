@@ -1,19 +1,29 @@
-import type { Argument } from '../types';
+import type { Accessor, Argument } from '../types';
 
-export default function text(node: Text, arg?: Argument<string | number>): string {
+function text(node: Text): string;
+function text(node: Text, arg: Argument<string | number>): Promise<string>;
+
+function text(node: Text, arg?: Argument<string | number>): string | Promise<string> {
   switch (typeof arg) {
     case 'undefined':
       return node.textContent ?? '';
     case 'string':
-      return node.textContent = arg;
     case 'number':
-      return node.textContent = `${arg}`;
+      return Promise.resolve(node.textContent = `${arg}`);
     case 'function':
-      const result = arg(value => text(node, value));
-      return result === undefined
-        ? node.textContent ?? ''
-        : text(node, result)
+      return new Promise(resolve => {
+        arg(((value?: string | number) => {
+          if (value === undefined) return text(node)
+          const promise = text(node, value)
+          return promise.then(promiseValue => {
+            resolve(promiseValue)
+            return promiseValue
+          })
+        }) as Accessor<string | number>);
+      })
     default:
       throw new Error(`Invalid argument type for "text": ${typeof arg}`);
   }
 }
+
+export default text
