@@ -40,9 +40,7 @@ export default function child(
         presence = node.childNodes.length
       }
       if (behaviour.currentIndex === undefined) {
-        behaviour.lastIndexRequest =
-          behaviour.currentIndex =
-          childNode ? [...node.childNodes].indexOf(childNode) : -1
+        behaviour.currentIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1
       }
       if (presence === behaviour.lastIndexRequest) {
         return Promise.resolve(behaviour.currentIndex) // Same request
