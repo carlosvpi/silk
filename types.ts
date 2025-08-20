@@ -1,4 +1,4 @@
-export type Argument<T, A = Accessor<T>> = T | ((f: A) => void);
+export type Argument<T, A = Accessor<T>, TReturn = void> = T | ((f: A) => TReturn);
 export interface Accessor<T> {
   (): T;
   (value: T): Promise<T>;

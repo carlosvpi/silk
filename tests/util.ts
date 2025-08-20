@@ -1,4 +1,4 @@
-interface Actuator extends Promise<void> {
+export interface Actuator extends Promise<void> {
   resolve: () => void
 }
 

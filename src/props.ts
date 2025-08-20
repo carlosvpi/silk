@@ -28,7 +28,6 @@ function props(
 ): Record<string, string> | Promise<Record<string, string>> | string | string[] | CSSStyleDeclaration | null {
   switch (typeof arg) {
     case 'undefined':
-      console.log(node.attributes)
       return Array.from(node.getAttributeNames()).reduce((acc: Record<string, string>, attribute) => {
         acc[attribute] = node.getAttribute(attribute) ?? '';
         return acc;

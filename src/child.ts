@@ -2,15 +2,12 @@ import { Argument } from "../types";
 import { noop, observeCalled, ObserveCalled } from "./util";
 
 export type Child = ChildNode | string | number
-export type AddAccessor<T> = (value?: T) => T | Promise<PresenceResolution>;
-export interface PresenceResolution {
-  presence: number;
-  response?: string;
-}
+export type PresenceAccessor = (value?: number | boolean) => number | boolean | Promise<number>;
+export type Presence = Argument<number | boolean, PresenceAccessor>
 
 export interface Behaviour {
-  onMount: (mount: () => PresenceResolution, presence: number) => (() => void);
-  onUnmount: (unmount: () => PresenceResolution, presence: number) => (() => void);
+  onMount: (mount: () => number, presence: number) => (() => void);
+  onUnmount: (unmount: () => number, presence: number) => (() => void);
   cancelMount?: () => void;
   cancelUnmount?: () => void;
   currentIndex?: number;
@@ -25,9 +22,9 @@ const defaultBehaviour: Pick<Behaviour, 'onMount' | 'onUnmount'> = {
 export default function child(
   node: HTMLElement | SVGElement,
   arg: Child,
-  presence?: Argument<number | boolean, AddAccessor<number | boolean>>,
+  presence?: Presence,
   behaviour?: Behaviour
-): number | Promise<PresenceResolution> {
+): number | Promise<number> {
   behaviour ||= {...defaultBehaviour}
   const childNode = typeof arg === 'string' || typeof arg === 'number'
     ? [...node.childNodes].find(childNode => childNode.textContent === `${arg}`)
@@ -48,43 +45,51 @@ export default function child(
           childNode ? [...node.childNodes].indexOf(childNode) : -1
       }
       if (presence === behaviour.lastIndexRequest) {
-        return Promise.resolve({ presence, response: 'SAME REQUEST' })
+        return Promise.resolve(behaviour.currentIndex) // Same request
       }
       const cancel = behaviour!.lastIndexRequest! >= 0 ? behaviour.cancelMount : behaviour.cancelUnmount
       cancel?.()
       behaviour.lastIndexRequest = presence
       if (presence === behaviour.currentIndex) {
-        return Promise.resolve({ presence, response: 'NO CHANGE' })
+        return Promise.resolve(presence) // No change
       }
-      return new Promise(resolve => {
+      return new Promise((resolve) => {
         let isImmediatePass = false
         let cancel: (() => void) | ObserveCalled | undefined
         cancel = (presence as number >= 0 ? behaviour.onMount: behaviour.onUnmount)(() => {
-          isImmediatePass = true
-          if (observeCalled.hasBeenCalled(cancel as ObserveCalled)) {
-            resolve({ presence: presence as number, response: 'CANCELLED' })
-            return { presence: presence as number, response: 'CANCELLED' }
-          }
-          behaviour.currentIndex = presence as number
-
           const childNode = (typeof arg === 'string' || typeof arg === 'number'
             ? [...node.childNodes].find(childNode => childNode.textContent === `${arg}`)
             : arg)
+          let index: number
+          isImmediatePass = true
+          if (observeCalled.hasBeenCalled(cancel as ObserveCalled)) {
+            index = childNode ? [...node.childNodes].indexOf(childNode) : -1
+            resolve(index) // cancelled
+            return index
+          }
+          behaviour.currentIndex = presence as number
+
           if (presence as number >= 0) {
             const addendo = childNode ?? document.createTextNode(`${arg}`)
             if (node.childNodes[presence as number] !== addendo) {
               node.insertBefore(addendo, node.childNodes[presence as number])
+              index = childNode ? [...node.childNodes].indexOf(childNode) : -1
+            } else {
+              index = presence as number
             }
           } else if (childNode && node.contains(childNode)) {
             node.removeChild(childNode)
+            index = -1
+          } else {
+            index = -2
           }
-          resolve({ presence: presence as number, response: 'OK' })
           if (presence as number >= 0 ) {
             behaviour.cancelMount = undefined
           } else {
             behaviour.cancelUnmount = undefined
           }
-          return { presence: presence as number, response: 'OK' }
+          resolve(index) // success
+          return index // success
         }, presence as number)
         if (isImmediatePass) {
           cancel = undefined
@@ -96,24 +101,24 @@ export default function child(
         }
       })
     case 'function':
+      const currentIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1
       const specialBehaviour = {
         ...behaviour,
-        currentIndex: -1,
-        lastIndexRequest: -1,
+        currentIndex,
         cancelMount: undefined,
         cancelUnmount: undefined
       }
-      const value = presence(value => {
-        return child(node, arg, value, specialBehaviour)
-      }) ?? undefined
-      if (value === undefined) {
-        const childNode = (typeof arg === 'string' || typeof arg === 'number'
-          ? [...node.childNodes].find(childNode => childNode.textContent === `${arg}`)
-          : arg)
-        const index = childNode ? [...node.childNodes].indexOf(childNode) : -1
-        return Promise.resolve({ presence: index })
-      }
-      return child(node, arg, value, behaviour)
+      const _presence = presence
+      return new Promise(resolve => {
+        _presence(value => {
+          const childNode = (typeof arg === 'string' || typeof arg === 'number'
+            ? [...node.childNodes].find(childNode => childNode.textContent === `${arg}`)
+            : arg)
+          const index = childNode ? [...node.childNodes].indexOf(childNode) : -1
+          resolve(index)
+          return child(node, arg, value, specialBehaviour)
+        })
+      })
     default:
       throw new Error(`Invalid argument type for "presence": ${typeof presence}`);
   }
