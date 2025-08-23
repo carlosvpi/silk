@@ -1,22 +1,24 @@
 import { Argument } from "../types";
-import child, { Child, Behaviour, AddAccessor } from "./child";
+import child, { Child, Behaviour, Presence } from "./child";
 
-type PresentialBehaviour = Behaviour & {
-  presence: Argument<number | boolean, AddAccessor<number | boolean>>
-}
-export type BehavedChild = Child | PresentialBehaviour & {
+export type BehavedChild = Behaviour & {
+  presence: Presence<boolean>
   child: Child;
 }
+export interface AddChildType {
+  (): ChildNode[];
+  (value: Child): number;
+  (value: Child, presence: Presence<boolean>, behaviour?: Behaviour): Promise<number>;
+}
+export type Children = (Child | BehavedChild)[] | ((add: AddChildType) => void);
 
-export type AddChildType = (value?: Child, presence?: Argument<number | boolean, AddAccessor<number | boolean>>, behaviour?: Behaviour) => ReturnType<typeof child> | ChildNode[];
-export type DelChildType = (child: Child) => void;
+function children(node: HTMLElement | SVGElement): ChildNode[];
+function children(node: HTMLElement | SVGElement, args: Children): Promise<ChildNode[]>;
 
-export type Children = BehavedChild[] | ((add: AddChildType, del?: DelChildType) => void);
-
-export default function children(
+function children(
   node: HTMLElement | SVGElement,
   args?: Children
-): ChildNode[] {
+): ChildNode[] | Promise<ChildNode[]> {
   switch (typeof args) {
     case 'undefined':
       return [...node.childNodes];
@@ -24,9 +26,15 @@ export default function children(
       if (!Array.isArray(args)) {
         throw new Error('Invalid children argument: object not array');
       }
-      args.forEach(value => {
+      return Promise.all(args.map(value => {
         if (typeof value === 'object' && 'child' in value) {
-          child(node, value.child, value.presence, value);
+          (arg?: boolean) => {
+            const p = (value as BehavedChild).presence
+            return typeof p !== 'function'
+              ? p
+              : arg === undefined ? p() : p(arg)
+          }
+          child(node, value.child, () as Presence<boolean>, value);
           return
         }
         if (typeof value === 'string' || typeof value === 'number') {
@@ -37,9 +45,20 @@ export default function children(
         } else {
           throw new Error(`Invalid child type: ${typeof value}`);
         }
-      });
-      return [...node.childNodes];
+      })).then(() => [...node.childNodes]);
     case 'function':
+      return new Promise(resolve => {
+        arg(((key?: string, value?: boolean) => {
+          if (key === undefined) return [...node.classList.values()]
+          if (value === undefined) return classed(node, key)
+          const promise = classed(node, key, value)
+          return promise.then(promiseValue => {
+            resolve([...node.classList.values()])
+            return promiseValue
+          })
+        }) as ClassesAccessor);
+      })
+
       args((value, presence, behaviour) => {
         if (value === undefined) {
           return [...node.childNodes];
@@ -51,3 +70,5 @@ export default function children(
       throw new Error(`Invalid argument type for "children": ${typeof args}`);
   }
 }
+
+export default children;

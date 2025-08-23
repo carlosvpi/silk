@@ -1,13 +1,16 @@
 import { Argument } from "../types";
-import { noop, observeCalled, ObserveCalled } from "./util";
+import { call, noop, observeCalled, ObserveCalled } from "./util";
 
 export type Child = ChildNode | string | number
-export type PresenceAccessor = (value?: number | boolean) => number | boolean | Promise<number>;
-export type Presence = Argument<number | boolean, PresenceAccessor>
+export interface PresenceAccessor<T = number | boolean> {
+  (): number;
+  (value: T): Promise<number>;
+}
+export type Presence<T = number | boolean> = Argument<T, PresenceAccessor<T>>
 
 export interface Behaviour {
-  onMount: (mount: () => number, presence: number) => (() => void);
-  onUnmount: (unmount: () => number, presence: number) => (() => void);
+  onMount?: (mount: () => number, presence: number) => (() => void);
+  onUnmount?: (unmount: () => number, presence: number) => (() => void);
   cancelMount?: () => void;
   cancelUnmount?: () => void;
   currentIndex?: number;
@@ -54,7 +57,8 @@ export default function child(
       return new Promise((resolve) => {
         let isImmediatePass = false
         let cancel: (() => void) | ObserveCalled | undefined
-        cancel = (presence as number >= 0 ? behaviour.onMount: behaviour.onUnmount)(() => {
+        const behaviourToCall = (presence as number >= 0 ? behaviour.onMount: behaviour.onUnmount) ?? call
+        cancel = behaviourToCall(() => {
           const childNode = (typeof arg === 'string' || typeof arg === 'number'
             ? [...node.childNodes].find(childNode => childNode.textContent === `${arg}`)
             : arg)
@@ -108,14 +112,14 @@ export default function child(
       }
       const _presence = presence
       return new Promise(resolve => {
-        _presence(value => {
+        _presence((value => {
           const childNode = (typeof arg === 'string' || typeof arg === 'number'
             ? [...node.childNodes].find(childNode => childNode.textContent === `${arg}`)
             : arg)
           const index = childNode ? [...node.childNodes].indexOf(childNode) : -1
           resolve(index)
           return child(node, arg, value, specialBehaviour)
-        })
+        }) as PresenceAccessor);
       })
     default:
       throw new Error(`Invalid argument type for "presence": ${typeof presence}`);

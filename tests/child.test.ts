@@ -110,42 +110,6 @@ describe('addChild', () => {
     expect(onCancelUnmount).not.toHaveBeenCalled()
   });
 
-  // it('calls delete and onDelete; does not cancel the deletion', async () => {
-  //   const onCancelMount = jest.fn();
-  //   const onCancelUnmount = jest.fn();
-  //   const onCancelDelete = jest.fn();
-  //   const deleteChild = jest.fn();
-  //   let resolveMount = getAction()
-  //   let resolveUnmount = getAction()
-  //   let resolveDelete = getAction()
-  //   const behaviour: Behaviour = {
-  //     onMount: mount => {
-  //       resolveMount.then(mount)
-  //       return onCancelMount
-  //     },
-  //     onUnmount: unmount => {
-  //       resolveUnmount.then(unmount)
-  //       return onCancelUnmount
-  //     },
-  //     onDelete: async del => {
-  //       resolveDelete.then(del)
-  //       return onCancelDelete
-  //     }
-  //   }
-  //   const del = addChild(parent, child, async presence => {
-  //     presence(true)
-  //     resolveMount.resolve()
-  //     await promise
-  //     presence(false)
-  //     return deleteChild;
-  //   }, behaviour);
-  //   const promise = del();
-  //   expect(await promise).toBe(true);
-  // });
-
-  // it('calls delete and onDelete; cancels the deletion', async () => {
-  // });
-
   it('calls onCancelUnmount if mountingState is set', async () => {
     const onCancelMount = jest.fn(() => {});
     const onCancelUnmount = jest.fn(() => {});
