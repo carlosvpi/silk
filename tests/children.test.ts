@@ -95,15 +95,6 @@ describe('adds', () => {
     expect(cancelMountCalled).toBe(true);
   });
 
-  // it('mount a child with a function', async () => {
-  //   let cancelMountCalled = false;
-  //   const ch = addChildren(parent, [childA, addChild => {
-  //     addChild(childB),
-  //     addChild(childB, true),
-  //   }, childC]);
-  //   expect(cancelMountCalled).toBe(true);
-  // });
-
   it('throws for invalid argument type', () => {
     expect(() => addChildren(parent, 'invalid' as any)).toThrow(Error);
   });
