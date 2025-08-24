@@ -109,14 +109,14 @@ addEventListener("load", () => {
             }
           }, 'Delete'),
         );
-        todo.statusSubj.subscribe((_, { done }) => {
-          if (!done) return
-          add(child, false)
-          unsubscribe?.()
-        })
+        // todo.statusSubj.subscribe((_, { done }) => {
+        //   if (!done) return
+        //   add(child, false)
+        //   unsubscribe?.()
+        // })
         add(
           child,
-          presence => {
+          (presence, deletion) => {
             unsubscribe = filterSubj.subscribe(filter => {
               if (filter !== 'all' && todo.statusSubj.getValue() !== filter) {
                 presence(false);
@@ -124,11 +124,15 @@ addEventListener("load", () => {
                 presence(todosSubj.getValue().indexOf(todo));
               }
             });
-            todo.statusSubj.subscribe(status => {
+            todo.statusSubj.subscribe((status, { done }) => {
               if (filterSubj.getValue() !== 'all' && status !== filterSubj.getValue()) {
                 presence(false);
               } else {
                 presence(todosSubj.getValue().indexOf(todo));
+              }
+              if (done) {
+                deletion(true)
+                unsubscribe?.()
               }
             });
           },
@@ -155,4 +159,11 @@ addEventListener("load", () => {
     })
   );
   silk(app, null, todoApp);
+  ;(async () => {
+    await wait(3000)
+    const todos = []
+    for (let i = 0; i < 5000; i++){ todos.push(addTodo(`Task number ${i+1}`)) }
+    await wait(3000)
+    for (let i = 0; i < 5000; i++){ deleteTodo(todos.pop()) }
+  })();
 });

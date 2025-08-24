@@ -77,6 +77,25 @@ describe('adds', () => {
     expect(parent.children[1]).toBe(childC);
   });
 
+  it('unmounts a child and deletes it', async () => {
+    const action = getAction()
+    const ch = addChildren(parent, [childA, {
+      child: childB,
+      presence: async (present, deletion) => {
+        expect(present()).toBe(-1);
+        present(true);
+        expect(present()).toBe(1);
+        expect(await present(false)).toBe(-1)
+        expect(await deletion(true)).toBe(true)
+        action.resolve();
+      },
+      onMount: mount => {mount()}
+    }, childC]);
+    expect(parent.children[0]).toBe(childA);
+    expect(await ch).toEqual([childA, childC]);
+    expect(parent.children[1]).toBe(childC);
+  });
+
   it('unmounts a child and cancels mount', async () => {
     let cancelMountCalled = false;
     const ch = addChildren(parent, [childA, {

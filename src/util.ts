@@ -20,4 +20,4 @@ observeCalled.hasBeenCalled = <T, U>(f: undefined | ObserveCalled<T, U>) => {
 
 export const noop = () => {}
 
-export const call: (unmount: () => number, presence: number) => void = (f, _) => {f()}
+export const call: (unmount: () => number, presence?: number) => void = (f, _) => {f()}

@@ -162,7 +162,8 @@ export default function child(
           specialBehaviour.cancelUnmount?.();
           specialBehaviour.cancelMove?.();
           specialBehaviour.lastAction = 'delete'
-          specialBehaviour.onDelete?.(() => {
+          const onDelete = specialBehaviour.onDelete ?? call
+          onDelete(() => {
             if (specialBehaviour === null) return -2;
             const childNode = (typeof arg === 'string' || typeof arg === 'number'
               ? [...node.childNodes].find(childNode => childNode.textContent === `${arg}`)
