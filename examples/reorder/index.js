@@ -71,6 +71,12 @@ addEventListener("load", () => {
               itemsSubj.subscribe(items => {
                 presence(items.indexOf(item))
               })
+            },
+            {
+              onMount: (mount, presence) => {
+                console.log(`Mounting ${item} at ${presence}`)
+                mount()
+              },
             }
           )
         })

@@ -179,6 +179,17 @@ describe('addChild', () => {
     expect(onCancelMount).not.toHaveBeenCalled()
   });
 
+  it('calls onMove when child is already mounted but moved', async () => {
+    const onMove = jest.fn(move => move());
+    parent.appendChild(child);
+    parent.appendChild(document.createElement('div')); // something after child
+    // Child is at index 0, we want it at index 1
+    const idx = await addChild(parent, child, 1, { onMove });
+    expect(onMove).toHaveBeenCalled();
+    expect(idx).toBe(1);
+    expect(parent.children[1]).toBe(child);
+  });
+
   it('throws for invalid argument type', () => {
     expect(() => addChild(parent, child, 'invalid' as any)).toThrow(Error);
   });
