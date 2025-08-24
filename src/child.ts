@@ -1,32 +1,38 @@
 import { Argument } from "../types";
 import { call, noop, observeCalled, ObserveCalled } from "./util";
 
-type LastAction = 'mount' | 'unmount' | 'move' | undefined;
+type LastAction = 'mount' | 'unmount' | 'move' | 'delete' | undefined;
 
 export type Child = ChildNode | string | number
-export interface PresenceAccessor<T = number | boolean> {
-  (): number;
-  (value: T): Promise<number>;
+export interface Accessor<TArgs, TReturn> {
+  (): TReturn;
+  (value: TArgs): Promise<TReturn>;
 }
-export type Presence<T = number | boolean> = Argument<T, PresenceAccessor<T>>
+
+export type PresenceAccessor<T> = Accessor<T, number>;
+export type DeletionAccessor = Accessor<true, boolean>;
+export type Presence<T = number | boolean> = T | ((presence: PresenceAccessor<T>, deletion: DeletionAccessor) => void);
+
+export type CancelFunction = void | (() => void);
 
 export interface Behaviour {
-  onMount?: (mount: () => number, presence: number) => (() => void);
-  onUnmount?: (unmount: () => number, presence: number) => (() => void);
-  onMove?: (move: () => number, presence: number) => (() => void);
-  onDelete?: (deleteNode: () => number, index: number) => (() => void);
-  cancelMount?: () => void;
-  cancelUnmount?: () => void;
-  cancelMove?: () => void;
+  onMount?: (mount: () => number, index: number) => CancelFunction;
+  onUnmount?: (unmount: () => number, index: number) => CancelFunction;
+  onMove?: (move: () => number, index: number) => CancelFunction;
+  onDelete?: (deleteNode: () => number) => CancelFunction;
+  cancelMount?: CancelFunction;
+  cancelUnmount?: CancelFunction;
+  cancelMove?: CancelFunction;
   currentIndex?: number;
   lastIndexRequest?: number;
   lastAction?: LastAction;
 }
 
-const defaultBehaviour: Pick<Behaviour, 'onMount' | 'onUnmount' | 'onMove'> = {
+const defaultBehaviour: Pick<Behaviour, 'onMount' | 'onUnmount' | 'onMove' | 'onDelete'> = {
   onMount: mount => {mount(); return noop},
   onUnmount: unmount => {unmount(); return noop},
   onMove: move => {move(); return noop},
+  onDelete: del => {del(); return noop},
 }
 
 export default function child(
@@ -72,7 +78,7 @@ export default function child(
       }
       return new Promise((resolve) => {
         let isImmediatePass = false
-        let cancel: (() => void) | ObserveCalled | undefined
+        let cancel: CancelFunction
         const action = (behaviour.currentIndex === -1 && (presence as number) >= 0)
           ? 'Mount'
           : (behaviour.currentIndex! >= 0 && (presence as number) === -1) ? 'Unmount'
@@ -121,18 +127,18 @@ export default function child(
           cancel = undefined
         }
         if (presence as number >= 0) {
-          if (childNode && behaviour.currentIndex !== presence) {
-            cancel = behaviour.cancelMove = observeCalled(cancel)
+          if (childNode && (behaviour.currentIndex ?? 1) * (presence as number) >= 0) {
+            cancel = behaviour.cancelMove = observeCalled(cancel ?? undefined)
           } else {
-            cancel = behaviour.cancelMount = observeCalled(cancel)
+            cancel = behaviour.cancelMount = observeCalled(cancel ?? undefined)
           }
         } else {
-          cancel = behaviour.cancelUnmount = observeCalled(cancel)
+          cancel = behaviour.cancelUnmount = observeCalled(cancel ?? undefined)
         }
       })
     case 'function':
       const currentIndex = childNode ? [...node.childNodes].indexOf(childNode) : -1
-      const specialBehaviour = {
+      let specialBehaviour: null | Behaviour = {
         ...behaviour,
         currentIndex,
         cancelMount: undefined,
@@ -141,13 +147,35 @@ export default function child(
       const _presence = presence
       return new Promise(resolve => {
         _presence((value => {
+          if (specialBehaviour === null || specialBehaviour.lastAction === 'delete') return Promise.resolve(-2);
           const childNode = (typeof arg === 'string' || typeof arg === 'number'
             ? [...node.childNodes].find(childNode => childNode.textContent === `${arg}`)
             : arg)
           const index = childNode ? [...node.childNodes].indexOf(childNode) : -1
           resolve(index)
-          return child(node, arg, value, specialBehaviour)
-        }) as PresenceAccessor);
+          return child(node, arg, value, specialBehaviour!)
+        }) as PresenceAccessor<boolean | number>, (value => {
+          if (value === undefined) return specialBehaviour === null;
+          if (!value) return false
+          if (specialBehaviour === null) return Promise.resolve(true);
+          specialBehaviour.cancelMount?.();
+          specialBehaviour.cancelUnmount?.();
+          specialBehaviour.cancelMove?.();
+          specialBehaviour.lastAction = 'delete'
+          specialBehaviour.onDelete?.(() => {
+            if (specialBehaviour === null) return -2;
+            const childNode = (typeof arg === 'string' || typeof arg === 'number'
+              ? [...node.childNodes].find(childNode => childNode.textContent === `${arg}`)
+              : arg)
+            const index = childNode ? [...node.childNodes].indexOf(childNode) : -1
+            if (node.contains(childNode!)) {
+              node.removeChild(childNode!);
+            }
+            specialBehaviour = null;
+            return index
+          });
+          return Promise.resolve(specialBehaviour === null)
+        }) as DeletionAccessor);
       })
     default:
       throw new Error(`Invalid argument type for "presence": ${typeof presence}`);

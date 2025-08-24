@@ -1,6 +1,4 @@
-import addChild, { PresenceAccessor, Behaviour, Presence } from '../src/child';
-import { noop } from '../src/util';
-import { Argument } from '../types';
+import addChild, { Behaviour } from '../src/child';
 import { Actuator, getAction } from './util';
 
 describe('addChild', () => {
@@ -190,6 +188,29 @@ describe('addChild', () => {
     expect(parent.children[1]).toBe(child);
   });
 
+  it('calls mount many times', async () => {
+    const idx = await addChild(parent, child, 1, {
+      onMount: mount => {
+        expect(mount()).toBe(0);
+        expect(mount()).toBe(0);
+      }
+    });
+    expect(parent.children[0]).toBe(child);
+  });
+
+  it('calls onDelete when deletion accessor is set true', async () => {
+    const onDelete = jest.fn(del => del());
+    addChild(parent, child, (presence, deletion) => {
+      expect(deletion()).toBe(false);
+      presence(0);
+      deletion(true);
+      expect(deletion()).toBe(true);
+    }, { onDelete });
+
+    expect(onDelete).toHaveBeenCalled();
+    expect(parent.contains(child)).toBe(false);
+  });
+  
   it('throws for invalid argument type', () => {
     expect(() => addChild(parent, child, 'invalid' as any)).toThrow(Error);
   });

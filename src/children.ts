@@ -28,44 +28,25 @@ function children(
       }
       return Promise.all(args.map(value => {
         if (typeof value === 'object' && 'child' in value) {
-          (arg?: boolean) => {
-            const p = (value as BehavedChild).presence
-            return typeof p !== 'function'
-              ? p
-              : arg === undefined ? p() : p(arg)
-          }
-          child(node, value.child, () as Presence<boolean>, value);
-          return
+          const behaved = value as BehavedChild
+          return (child(node, behaved.child, behaved.presence, behaved) as Promise<number>).then(() => behaved.child as ChildNode);
         }
         if (typeof value === 'string' || typeof value === 'number') {
           value = document.createTextNode(`${value}`)
         }
         if (value instanceof HTMLElement || value instanceof SVGElement || value instanceof Text) {
-          child(node, value, true);
-        } else {
-          throw new Error(`Invalid child type: ${typeof value}`);
+          return (child(node, value, true) as Promise<number>).then(() => value as ChildNode);
         }
+        throw new Error(`Invalid child type: ${typeof value}`);
       })).then(() => [...node.childNodes]);
     case 'function':
       return new Promise(resolve => {
-        arg(((key?: string, value?: boolean) => {
-          if (key === undefined) return [...node.classList.values()]
-          if (value === undefined) return classed(node, key)
-          const promise = classed(node, key, value)
-          return promise.then(promiseValue => {
-            resolve([...node.classList.values()])
-            return promiseValue
-          })
-        }) as ClassesAccessor);
+        args(((value?: Child, presence?: Presence, behaviour?: Behaviour) => {
+          if (value === undefined) return [...node.childNodes];
+          return child(node, value, presence, behaviour);
+        }) as AddChildType);
+        resolve([...node.childNodes]);
       })
-
-      args((value, presence, behaviour) => {
-        if (value === undefined) {
-          return [...node.childNodes];
-        }
-        return child(node, value, presence, behaviour);
-      });
-      return [...node.childNodes];
    default:
       throw new Error(`Invalid argument type for "children": ${typeof args}`);
   }

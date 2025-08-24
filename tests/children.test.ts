@@ -1,4 +1,5 @@
-import addChildren from '../src/adds';
+import { getAction } from './util';
+import addChildren from '../src/children';
 
 describe('adds', () => {
   let parent: HTMLElement;
@@ -15,17 +16,17 @@ describe('adds', () => {
     childD = document.createElement('span');
   });
 
-  it('appends children when called in an array', () => {
+  it('appends children when called in an array', async () => {
     const ch = addChildren(parent, [childA, childB, childC, childD]);
     expect(parent.children.length).toBe(4);
     expect(parent.children[0]).toBe(childA);
     expect(parent.children[1]).toBe(childB);
     expect(parent.children[2]).toBe(childC);
     expect(parent.children[3]).toBe(childD);
-    expect(ch).toEqual([childA, childB, childC, childD]);
+    expect(await ch).toEqual([childA, childB, childC, childD]);
   });
 
-  it('appends children with behaviour', () => {
+  it('appends children with behaviour', async () => {
     let mountCalled = false;
     const ch = addChildren(parent, [childA, {
       child: childB,
@@ -39,10 +40,10 @@ describe('adds', () => {
     expect(parent.children[0]).toBe(childA);
     expect(parent.children[1]).toBe(childB);
     expect(parent.children[2]).toBe(childC);
-    expect(ch).toEqual([childA, childB, childC]);
+    expect(await ch).toEqual([childA, childB, childC]);
   });
 
-  it('does not add a child when behaviour is false', () => {
+  it('does not add a child when behaviour is false', async () => {
     let mountCalled = false;
     const ch = addChildren(parent, [childA, {
       child: childB,
@@ -55,45 +56,53 @@ describe('adds', () => {
     expect(mountCalled).toBe(false);
     expect(parent.children[0]).toBe(childA);
     expect(parent.children[1]).toBe(childC);
-    expect(ch).toEqual([childA, childC]);
+    expect(await ch).toEqual([childA, childC]);
   });
 
-  it('unmounts a child when needed', () => {
-    let cancelMountCalled = false;
+  it('unmounts a child when needed', async () => {
+    const action = getAction()
     const ch = addChildren(parent, [childA, {
       child: childB,
-      presence: present => {
+      presence: async present => {
         expect(present()).toBe(-1);
         present(true);
         expect(present()).toBe(1);
-        present(false);
+        expect(await present(false)).toBe(-1)
+        action.resolve();
       },
-      onCancelMount: () => {
-        cancelMountCalled = true;
-      }
+      onMount: mount => {mount()}
     }, childC]);
     expect(parent.children[0]).toBe(childA);
+    expect(await ch).toEqual([childA, childC]);
     expect(parent.children[1]).toBe(childC);
-    expect(ch).toEqual([childA, childC]);
   });
 
-  it('unmounts a child and cancels mount', () => {
+  it('unmounts a child and cancels mount', async () => {
     let cancelMountCalled = false;
     const ch = addChildren(parent, [childA, {
       child: childB,
       onMount: mount => {
         setTimeout(mount, 1000);
+        return () => {
+          cancelMountCalled = true;
+        }
       },
       presence: present => {
         present(true);
         present(false);
       },
-      onCancelMount: () => {
-        cancelMountCalled = true;
-      }
     }, childC]);
     expect(cancelMountCalled).toBe(true);
   });
+
+  // it('mount a child with a function', async () => {
+  //   let cancelMountCalled = false;
+  //   const ch = addChildren(parent, [childA, addChild => {
+  //     addChild(childB),
+  //     addChild(childB, true),
+  //   }, childC]);
+  //   expect(cancelMountCalled).toBe(true);
+  // });
 
   it('throws for invalid argument type', () => {
     expect(() => addChildren(parent, 'invalid' as any)).toThrow(Error);
